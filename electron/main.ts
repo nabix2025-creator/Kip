@@ -5,6 +5,7 @@ import { connectIcloud, disconnectIcloud, icloudStatus, syncIcloud } from './cal
 import { connectGoogle, disconnectGoogle, googleStatus, pushGoogle, syncGoogle } from './google'
 import { storeGet, storeSet } from './store'
 import type { PushAction } from './types'
+import { setupAutoUpdater } from './updater'
 
 interface ReminderPayload {
   title: string
@@ -337,6 +338,8 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('icloud:sync', () => syncIcloud())
     ipcMain.handle('icloud:disconnect', () => disconnectIcloud())
     ipcMain.handle('icloud:status', () => icloudStatus())
+
+    setupAutoUpdater()
   })
 }
 

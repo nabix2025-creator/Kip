@@ -10,6 +10,11 @@ protocols:
   - name: Kip
     schemes:
       - kip
+publish:
+  provider: github
+  owner: nabix2025-creator
+  repo: Kip
+  releaseType: release
 win:
   target:
     - nsis

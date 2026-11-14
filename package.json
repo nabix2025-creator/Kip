@@ -6,12 +6,17 @@
   "author": "Kip",
   "main": "out/main/index.js",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nabix2025-creator/Kip.git"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json",
-    "dist": "electron-vite build && electron-builder --config electron-builder.yml"
+    "dist": "electron-vite build && electron-builder --config electron-builder.yml",
+    "release": "electron-vite build && electron-builder --config electron-builder.yml --publish always"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.0",
@@ -19,6 +24,7 @@
     "chrono-node": "^2.7.7",
     "date-fns": "^4.1.0",
     "electron-store": "8.2.0",
+    "electron-updater": "^6.8.11",
     "firebase": "^11.1.0",
     "framer-motion": "^11.15.0",
     "lucide-react": "^0.468.0",

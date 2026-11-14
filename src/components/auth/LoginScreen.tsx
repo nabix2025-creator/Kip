@@ -11,66 +11,36 @@ export function LoginScreen() {
 
   return (
     <div className="app-shell relative flex min-h-0 overflow-hidden bg-primary text-primary">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-24 top-[-10%] h-[420px] w-[420px] rounded-full bg-accent-blue/20 blur-3xl" />
-        <div className="absolute bottom-[-20%] right-[-10%] h-[480px] w-[480px] rounded-full bg-[#AF52DE]/16 blur-3xl" />
-      </div>
+      <div className="pointer-events-none absolute -left-20 top-[-8%] h-[380px] w-[380px] rounded-full bg-accent-blue/15 blur-3xl" />
 
-      <div className="chrome absolute inset-x-0 top-0 z-20 flex h-11 items-center justify-between px-3">
+      <div className="chrome absolute inset-x-0 top-0 z-20 flex h-11 items-center px-3">
         <WindowControls />
         <div className="drag h-full flex-1" />
       </div>
 
       <div className="relative z-10 flex flex-1 items-center justify-center px-6">
         <motion.div
-          initial={{ opacity: 0, y: 18, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.35, ease: EASE }}
-          className="glass w-full max-w-[420px] p-8 text-center"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.28, ease: EASE }}
+          className="w-full max-w-[360px] text-center"
         >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.08, duration: 0.3, ease: EASE }}
-            className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-accent-blue text-white shadow-[0_12px_30px_rgba(10,132,255,0.35)]"
-          >
-            <CalendarDays size={30} strokeWidth={2.2} />
-          </motion.div>
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[18px] bg-accent-blue text-white">
+            <CalendarDays size={26} strokeWidth={2.2} />
+          </div>
+          <h1 className="text-[32px] font-bold tracking-[-0.04em]">Kip</h1>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12, duration: 0.28, ease: EASE }}
-            className="text-[34px] font-bold tracking-[-0.04em]"
-          >
-            Kip
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.18, duration: 0.28, ease: EASE }}
-            className="mt-2 text-[15px] leading-relaxed text-secondary"
-          >
-            Your calendar, reminders, and life desks — synced with your Google account.
-          </motion.p>
-
-          <motion.button
+          <button
             type="button"
             disabled={busy}
             onClick={() => void signInWithGoogle()}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.24, duration: 0.28, ease: EASE }}
-            whileTap={{ scale: 0.98 }}
             className="mt-8 flex h-12 w-full items-center justify-center gap-3 rounded-2xl bg-[#1C1C1E] text-[15px] font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
           >
             <GoogleMark />
             {busy ? 'Opening Google…' : 'Continue with Google'}
-          </motion.button>
+          </button>
 
           {error && <div className="mt-4 text-[13px] text-accent-red">{error}</div>}
-
-          <p className="mt-6 text-[12px] text-tertiary">A browser window opens for Google. After login, Kip returns automatically.</p>
         </motion.div>
       </div>
     </div>
