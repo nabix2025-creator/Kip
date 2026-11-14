@@ -1,0 +1,24 @@
+---
+description: Clean macOS Calendar visual system
+globs: src/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# UI
+
+Match Apple Calendar on Mac: light, airy, quiet chrome. Prefer light theme by default.
+
+- Font: `-apple-system` / SF Pro / Inter. Body copy mostly 12–13px. Titles use tracking-tight.
+- Surfaces: white main canvas (`bg-primary`), frosted sidebar (`.sidebar-surface`), toolbar (`.chrome`). Sheets use `.glass`.
+- Sidebar: calendars on top, mini calendar pinned at the bottom. Square color checkboxes, not heavy cards.
+- Toolbar: traffic lights left, centered Day/Week/Month/Year segmented control, Today + arrows + search on the right.
+- Events: soft pastel fills via `eventStyle()`, thin left color bar, 6px radius. Today uses red circle; selected day uses blue.
+- Keep motion short (≤280ms) with `ease-ios` / `EASE`. Avoid heavy dark iOS “Reminders” chrome unless in sheets.
+- Hour grid uses `HOUR_HEIGHT` (64) and `SNAP_MINUTES` (15).
+
+```tsx
+// Good
+<button type="button" className="mac-toolbar-btn" aria-label="Today">
+  Today
+</button>
+```

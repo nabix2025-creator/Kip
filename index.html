@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kip</title>
+    <script>
+      try {
+        var raw = localStorage.getItem('kip-settings') || localStorage.getItem('nodash-settings') || localStorage.getItem('fantastical-settings')
+        var theme = raw ? JSON.parse(raw).state.theme : 'light'
+        var dark = theme === 'light' ? false : theme === 'dark' ? true : matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        document.documentElement.style.background = 'transparent'
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light'
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

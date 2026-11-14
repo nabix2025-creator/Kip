@@ -1,0 +1,20 @@
+# Kip for Windows
+
+Electron + React 18 + TypeScript calendar. Match Apple Calendar / Fantastical-style layout: three columns, SF/system fonts, materials (`.glass`, `.chrome`, `.ios-card`), and tokens in `src/styles/globals.css` and `tailwind.config.js`.
+
+## Architecture
+
+- Renderer lives in `src/`. Electron main, preload, ICS, and CalDAV live in `electron/`.
+- Import renderer code with the `@/` alias.
+- Global state is Zustand: `calendarStore`, `eventStore`, `taskStore`, `settingsStore`. Persist through the existing stores. Do not introduce a second state library.
+- Dates use `date-fns`. Natural language uses `chrono-node` via `src/lib/nlpParser.ts`.
+- Icons are Lucide only. Motion is Framer Motion with `EASE` from `src/lib/constants.ts` (`cubic-bezier(0.4, 0, 0.2, 1)`).
+- Do not add a UI kit, CSS-in-JS, or another drag library. Build controls in `src/components/ui`.
+
+## Behavior
+
+- Every view reads and writes real store state. Seed data is only the initial store contents.
+- Desktop APIs go through `window.api` from the preload bridge. Renderer code must still render when `window.api` is missing.
+- Windows shortcuts use Ctrl. Views: 1 Day, 2 Week, 3 Month, 4 Quarter, 5 Year. Ctrl+K new event, Ctrl+T today, Ctrl+F search.
+- Calendar colors come from `PALETTE`. Event blocks use `eventStyle()`.
+- Remote calendars (Google, iCloud/CalDAV) merge through `mergeRemoteCalendars`. Do not call Google or CalDAV directly from React.

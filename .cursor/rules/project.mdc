@@ -1,0 +1,27 @@
+---
+description: Kip Windows app architecture and stack
+globs:
+alwaysApply: true
+---
+
+# Project
+
+Electron + React 18 + TypeScript calendar for Windows. Product name is Kip. UI matches Apple Calendar / Fantastical-style layout: three columns, Inter, glass panels, tokens in `src/styles/globals.css` and `tailwind.config.js`.
+
+- Renderer in `src/`. Main, preload, ICS, and CalDAV in `electron/`.
+- Import renderer modules with `@/`.
+- State is Zustand (`calendarStore`, `eventStore`, `taskStore`, `settingsStore`). Do not add another state library.
+- Dates: `date-fns`. Natural language: `chrono-node` through `src/lib/nlpParser.ts`.
+- Icons: Lucide. Motion: Framer Motion with `EASE` from `src/lib/constants.ts`.
+- No UI kit and no extra drag library. Shared controls live in `src/components/ui`.
+- Views read and write store state. Seed data is only the initial store contents.
+- Desktop APIs go through `window.api`. The renderer must still render when `window.api` is missing.
+- Windows shortcuts use Ctrl: 1–5 switch views, Ctrl+K new event, Ctrl+T today, Ctrl+F search.
+- Colors come from `PALETTE`. Event blocks use `eventStyle()`.
+- Google and iCloud calendars merge through `mergeRemoteCalendars`. Do not call those APIs from React components.
+
+```tsx
+// Good: store action, desktop bridge optional
+useEventStore.getState().addEvent(draft)
+window.api?.notify({ title, body })
+```
