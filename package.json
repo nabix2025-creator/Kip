@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Kip calendar for Windows",
+  "author": "Kip",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
