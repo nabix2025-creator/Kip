@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { addDays, addMonths, addWeeks, addYears, parseISO } from 'date-fns'
 import type { Priority, Recurrence, Task, TaskListDef } from '@/types'
 import { uid } from '@/lib/id'
-import { LIST_REMINDERS, seedLists, seedTasks } from '@/store/seed'
+import { LIST_REMINDERS, seedLists } from '@/store/seed'
 
 interface TaskState {
   lists: TaskListDef[]
@@ -30,7 +30,7 @@ export const useTaskStore = create<TaskState>()(
   persist(
     (set, get) => ({
       lists: seedLists(),
-      tasks: seedTasks(),
+      tasks: [],
       addTask: (input) => {
         const stamp = new Date().toISOString()
         const task: Task = {

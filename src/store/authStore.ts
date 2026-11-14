@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Session, User } from '@supabase/supabase-js'
 import { AUTH_REDIRECT, getSupabase, hasSupabaseConfig } from '@/lib/supabase'
+import { bindLocalDataToUser } from '@/lib/userData'
 
 export interface UserProfile {
   id: string
@@ -88,6 +89,7 @@ export const useAuthStore = create<AuthState>()(
             return
           }
           const profile = await fetchProfile(session.user)
+          bindLocalDataToUser(session.user.id, profile.onboarded)
           set({ ready: true, session, user: session.user, profile, error: null })
         } catch (error) {
           set({
@@ -145,6 +147,7 @@ export const useAuthStore = create<AuthState>()(
           const { data } = await supabase.auth.getSession()
           if (!data.session?.user) throw new Error('No session after Google login')
           const profile = await fetchProfile(data.session.user)
+          bindLocalDataToUser(data.session.user.id, profile.onboarded)
           set({ session: data.session, user: data.session.user, profile, ready: true })
           window.api?.focusMain?.()
         } catch (error) {

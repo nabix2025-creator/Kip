@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { CalendarEvent, EventDraft, EventStatus } from '@/types'
 import { uid } from '@/lib/id'
-import { seedEvents } from '@/store/seed'
 import { pushGoogleChange } from '@/lib/googleCalendar'
 
 interface EventState {
@@ -44,7 +43,7 @@ function fromDraft(draft: EventDraft, id = uid()): CalendarEvent {
 export const useEventStore = create<EventState>()(
   persist(
     (set, get) => ({
-      events: seedEvents(),
+      events: [],
       statuses: {},
       addEvent: (draft) => {
         const event = fromDraft(draft)

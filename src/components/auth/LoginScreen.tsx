@@ -13,12 +13,20 @@ export function LoginScreen() {
     <div className="app-shell relative flex min-h-0 overflow-hidden bg-primary text-primary">
       <div className="pointer-events-none absolute -left-20 top-[-8%] h-[380px] w-[380px] rounded-full bg-accent-blue/15 blur-3xl" />
 
-      <div className="chrome absolute inset-x-0 top-0 z-20 flex h-11 items-center px-3">
-        <WindowControls />
-        <div className="drag h-full flex-1" />
-      </div>
+      <header
+        className="chrome drag absolute inset-x-0 top-0 z-30 flex h-[46px] shrink-0 items-center px-2"
+        onDoubleClick={(event) => {
+          if ((event.target as HTMLElement).closest('button')) return
+          window.api?.maximize()
+        }}
+      >
+        <div className="drag h-full min-w-0 flex-1" />
+        <div className="no-drag ml-auto">
+          <WindowControls />
+        </div>
+      </header>
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-6">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-[46px]">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}

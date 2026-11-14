@@ -55,12 +55,20 @@ export function OnboardingScreen() {
   return (
     <div className="app-shell relative flex min-h-0 overflow-hidden bg-primary text-primary">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(10,132,255,0.16),transparent_40%),radial-gradient(circle_at_80%_80%,rgba(175,82,222,0.14),transparent_42%)]" />
-      <div className="chrome absolute inset-x-0 top-0 z-20 flex h-11 items-center px-3">
-        <WindowControls />
-        <div className="drag h-full flex-1" />
-      </div>
+      <header
+        className="chrome drag absolute inset-x-0 top-0 z-30 flex h-[46px] shrink-0 items-center px-2"
+        onDoubleClick={(event) => {
+          if ((event.target as HTMLElement).closest('button')) return
+          window.api?.maximize()
+        }}
+      >
+        <div className="drag h-full min-w-0 flex-1" />
+        <div className="no-drag ml-auto">
+          <WindowControls />
+        </div>
+      </header>
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-6">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-6 pt-[46px]">
         <div className="glass w-full max-w-[460px] p-8">
           <div className="mb-6 flex gap-2">
             {steps.map((item, index) => (
