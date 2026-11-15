@@ -18,7 +18,8 @@ export function useNotifications(): void {
     if (!enabled || isTrayWindow() || isAlertWindow()) return
     const run = () => {
       const now = new Date()
-      const upcoming = expandEvents(events, now, addDays(now, 2))
+      const from = new Date(now.getTime() - 60 * 60 * 1000)
+      const upcoming = expandEvents(events, from, addDays(now, 2))
       void scanReminders(upcoming, calendars, tasks)
     }
     run()

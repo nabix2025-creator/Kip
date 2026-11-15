@@ -16,14 +16,11 @@ export function CalendarList() {
   const toggle = useCalendarStore((state) => state.toggleCalendar)
   const update = useCalendarStore((state) => state.updateCalendar)
   const remove = useCalendarStore((state) => state.removeCalendar)
-  const saveSet = useCalendarStore((state) => state.saveSet)
   const applySet = useCalendarStore((state) => state.applySet)
   const removeSet = useCalendarStore((state) => state.removeSet)
   const openAdd = useCalendarStore((state) => state.openAddCalendar)
   const [editing, setEditing] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; calendar: Calendar } | null>(null)
-  const [setDraft, setSetDraft] = useState(false)
-  const [setName, setSetName] = useState('')
   const remoteGroups = GROUPS.filter((group) => calendars.some((calendar) => calendar.group === group))
 
   return (
@@ -85,28 +82,9 @@ export function CalendarList() {
           </section>
         ))}
 
-        <section className="mb-2">
-          <div className="ios-section-label flex items-center justify-between pr-2">
-            <span>Sets</span>
-            <button type="button" className="rounded p-0.5 text-secondary hover:bg-fill/10 hover:text-primary" onClick={() => setSetDraft(true)} aria-label="Save calendar set">
-              <Plus size={12} />
-            </button>
-          </div>
-          <div className="px-3">
-            {setDraft && (
-              <form
-                className="mb-2"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  saveSet(setName)
-                  setSetName('')
-                  setSetDraft(false)
-                }}
-              >
-                <input autoFocus value={setName} onChange={(event) => setSetName(event.target.value)} placeholder="Set name" className="field w-full" />
-              </form>
-            )}
-            <div className="flex flex-wrap gap-1">
+        {sets.length > 0 && (
+          <section className="mb-2">
+            <div className="flex flex-wrap gap-1 px-3">
               {sets.map((entry) => (
                 <button
                   key={entry.id}
@@ -123,8 +101,8 @@ export function CalendarList() {
                 </button>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <SidebarPomodoro />
         <SidebarCountdown />

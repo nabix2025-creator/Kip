@@ -6,6 +6,8 @@ import { useDashboardStore } from '@/store/dashboardStore'
 import { useReminderStore } from '@/store/reminderStore'
 import { useSettingsStore } from '@/store/settingsStore'
 
+const HABIT_NUDGE_KEY = 'kip-habit-nudge'
+
 export function useDashboardRuntime(enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return
@@ -29,6 +31,27 @@ export function useDashboardRuntime(enabled: boolean): void {
         const timed = useReminderStore.getState().reminders
         const countdowns = useDashboardStore.getState().countdowns
         void scanReminders([], [], [], timed, countdowns)
+
+        // Gentle habit miss nudge after 8pm local — once per day.
+        const hour = new Date().getHours()
+        if (hour >= 20) {
+          const habits = useDashboardStore.getState().habits
+          const missed = habits.filter((habit) => !habit.checks[day])
+          const nudged = localStorage.getItem(HABIT_NUDGE_KEY)
+          if (missed.length && nudged !== day) {
+            localStorage.setItem(HABIT_NUDGE_KEY, day)
+            const names = missed
+              .slice(0, 3)
+              .map((habit) => habit.name)
+              .join(', ')
+            useCalendarStore.getState().pushToast(`Habits waiting · ${names}`)
+            void showSystemNotification({
+              title: 'Habits waiting',
+              body: missed.length === 1 ? `${names} is still open tonight.` : `${names}${missed.length > 3 ? '…' : ''} — a small check-in keeps the streak.`,
+              time: 'Evening nudge',
+            })
+          }
+        }
       }
 
       const now = Date.now()

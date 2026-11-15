@@ -1,19 +1,16 @@
 import { useMemo } from 'react'
-import { isToday, parseISO, startOfDay } from 'date-fns'
+import { resolveTaskPeriod } from '@/lib/taskPeriod'
 import { useTaskStore } from '@/store/taskStore'
-import type { Task } from '@/types'
+import type { Task, TaskPeriod } from '@/types'
 
-export type TaskFilter = 'all' | 'today' | 'upcoming'
+export type TaskFilter = 'all' | TaskPeriod
 
 export function useTasks(filter: TaskFilter): Task[] {
   const tasks = useTaskStore((state) => state.tasks)
   return useMemo(() => {
     const filtered = tasks.filter((task) => {
       if (filter === 'all') return true
-      if (!task.due) return false
-      const due = parseISO(task.due)
-      if (filter === 'today') return isToday(due) || (startOfDay(due) < startOfDay(new Date()) && !task.completed)
-      return startOfDay(due) > startOfDay(new Date())
+      return resolveTaskPeriod(task) === filter
     })
     return filtered.sort((a, b) => {
       if (a.completed !== b.completed) return a.completed ? 1 : -1

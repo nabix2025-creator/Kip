@@ -3,10 +3,13 @@ import { persist } from 'zustand/middleware'
 import { toDateKey } from '@/lib/dates'
 import { uid } from '@/lib/id'
 import { QUOTES } from '@/lib/quotes'
+import { makeAddon, makeStep, normalizeProject, syncProjectNext } from '@/lib/projects'
 
 export type DashPriority = 'low' | 'medium' | 'high'
 export type MediaKind = 'books' | 'movies' | 'anime'
 export type MoneyKind = 'income' | 'expense'
+export type ProjectAddonKind = 'tool' | 'dep' | 'person' | 'resource'
+export type ProjectAddonStatus = 'needed' | 'done'
 
 export interface DashTask {
   id: string
@@ -16,12 +19,30 @@ export interface DashTask {
   day: string
 }
 
+export interface ProjectStep {
+  id: string
+  label: string
+  done: boolean
+}
+
+export interface ProjectAddon {
+  id: string
+  label: string
+  kind: ProjectAddonKind
+  status: ProjectAddonStatus
+}
+
 export interface Project {
   id: string
   name: string
   priority: DashPriority
   done: boolean
+  /** Derived from first open pathway step; kept for list/today summaries. */
   next?: string
+  /** YYYY-MM-DD target, optional. */
+  targetDate?: string
+  steps: ProjectStep[]
+  addons: ProjectAddon[]
 }
 
 export interface Countdown {
@@ -101,6 +122,28 @@ export interface PomodoroState {
   sessions: Record<string, number>
 }
 
+export type RoutineKind = 'morning' | 'evening'
+
+export interface RoutineStep {
+  id: string
+  label: string
+}
+
+export interface FocusSessionLog {
+  id: string
+  at: string
+  durationMin: number
+  kind: 'pomodoro' | 'deep'
+  label?: string
+}
+
+export interface WeeklyReview {
+  weekKey: string
+  top3: string[]
+  notes: string
+  completedAt?: string
+}
+
 const FOCUS_SECONDS = 25 * 60
 
 interface DashboardState {
@@ -125,6 +168,12 @@ interface DashboardState {
   ledger: LedgerEntry[]
   wishes: Wish[]
   pomodoro: PomodoroState
+  morningSteps: RoutineStep[]
+  eveningSteps: RoutineStep[]
+  routineChecks: Record<string, Record<string, boolean>>
+  focusLogs: FocusSessionLog[]
+  weeklyReviews: WeeklyReview[]
+  reviewDay: 0 | 1 | 2 | 3 | 4 | 5 | 6
   setTaskPriority: (priority: DashPriority) => void
   addTask: (title: string) => void
   toggleTask: (id: string) => void
@@ -134,7 +183,16 @@ interface DashboardState {
   renameProject: (id: string, name: string) => void
   setProjectPriority: (id: string, priority: DashPriority) => void
   setProjectNext: (id: string, next: string) => void
+  setProjectTargetDate: (id: string, targetDate: string) => void
   removeProject: (id: string) => void
+  addProjectStep: (projectId: string, label: string) => void
+  renameProjectStep: (projectId: string, stepId: string, label: string) => void
+  toggleProjectStep: (projectId: string, stepId: string) => void
+  removeProjectStep: (projectId: string, stepId: string) => void
+  moveProjectStep: (projectId: string, stepId: string, direction: -1 | 1) => void
+  addProjectAddon: (projectId: string, label: string, kind: ProjectAddonKind) => void
+  toggleProjectAddon: (projectId: string, addonId: string) => void
+  removeProjectAddon: (projectId: string, addonId: string) => void
   addCountdown: (name: string, at: string) => void
   removeCountdown: (id: string) => void
   addCall: (input: { who: string; phone: string; at: string }) => void
@@ -172,6 +230,14 @@ interface DashboardState {
   pausePomodoro: () => void
   resetPomodoro: () => void
   syncPomodoro: () => boolean
+  addRoutineStep: (kind: RoutineKind, label: string) => void
+  removeRoutineStep: (kind: RoutineKind, id: string) => void
+  toggleRoutineStep: (stepId: string, day: string) => void
+  logFocusSession: (input: { durationMin: number; kind: 'pomodoro' | 'deep'; label?: string; at?: string }) => void
+  removeFocusLog: (id: string) => void
+  setReviewDay: (day: 0 | 1 | 2 | 3 | 4 | 5 | 6) => void
+  saveWeeklyReview: (weekKey: string, top3: string[], notes: string) => void
+  focusMinutesOn: (day: string) => number
 }
 
 function today() {
@@ -202,6 +268,12 @@ export const useDashboardStore = create<DashboardState>()(
       ledger: [],
       wishes: [],
       pomodoro: { running: false, endsAt: null, remaining: FOCUS_SECONDS, sessions: {} },
+      morningSteps: [],
+      eveningSteps: [],
+      routineChecks: {},
+      focusLogs: [],
+      weeklyReviews: [],
+      reviewDay: 0,
       setTaskPriority: (taskPriority) => set({ taskPriority }),
       addTask: (title) => {
         const name = title.trim()
@@ -218,7 +290,9 @@ export const useDashboardStore = create<DashboardState>()(
         const title = name.trim()
         if (!title) return ''
         const id = uid()
-        set((state) => ({ projects: [{ id, name: title, priority, done: false, next: '' }, ...state.projects] }))
+        set((state) => ({
+          projects: [{ id, name: title, priority, done: false, next: '', targetDate: '', steps: [], addons: [] }, ...state.projects],
+        }))
         return id
       },
       toggleProject: (id) =>
@@ -232,7 +306,91 @@ export const useDashboardStore = create<DashboardState>()(
         set((state) => ({ projects: state.projects.map((project) => (project.id === id ? { ...project, priority } : project)) })),
       setProjectNext: (id, next) =>
         set((state) => ({ projects: state.projects.map((project) => (project.id === id ? { ...project, next } : project)) })),
+      setProjectTargetDate: (id, targetDate) =>
+        set((state) => ({
+          projects: state.projects.map((project) => (project.id === id ? { ...project, targetDate: targetDate.trim() } : project)),
+        })),
       removeProject: (id) => set((state) => ({ projects: state.projects.filter((project) => project.id !== id) })),
+      addProjectStep: (projectId, label) => {
+        const title = label.trim()
+        if (!title) return
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return syncProjectNext({ ...project, steps: [...project.steps, makeStep(title)] })
+          }),
+        }))
+      },
+      renameProjectStep: (projectId, stepId, label) => {
+        const title = label.trim()
+        if (!title) return
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return syncProjectNext({
+              ...project,
+              steps: project.steps.map((step) => (step.id === stepId ? { ...step, label: title } : step)),
+            })
+          }),
+        }))
+      },
+      toggleProjectStep: (projectId, stepId) =>
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return syncProjectNext({
+              ...project,
+              steps: project.steps.map((step) => (step.id === stepId ? { ...step, done: !step.done } : step)),
+            })
+          }),
+        })),
+      removeProjectStep: (projectId, stepId) =>
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return syncProjectNext({ ...project, steps: project.steps.filter((step) => step.id !== stepId) })
+          }),
+        })),
+      moveProjectStep: (projectId, stepId, direction) =>
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            const index = project.steps.findIndex((step) => step.id === stepId)
+            const nextIndex = index + direction
+            if (index < 0 || nextIndex < 0 || nextIndex >= project.steps.length) return project
+            const steps = [...project.steps]
+            const [item] = steps.splice(index, 1)
+            steps.splice(nextIndex, 0, item)
+            return syncProjectNext({ ...project, steps })
+          }),
+        })),
+      addProjectAddon: (projectId, label, kind) => {
+        const title = label.trim()
+        if (!title) return
+        set((state) => ({
+          projects: state.projects.map((project) =>
+            project.id === projectId ? { ...project, addons: [...project.addons, makeAddon(title, kind)] } : project,
+          ),
+        }))
+      },
+      toggleProjectAddon: (projectId, addonId) =>
+        set((state) => ({
+          projects: state.projects.map((project) => {
+            if (project.id !== projectId) return project
+            return {
+              ...project,
+              addons: project.addons.map((addon) =>
+                addon.id === addonId ? { ...addon, status: addon.status === 'done' ? 'needed' : 'done' } : addon,
+              ),
+            }
+          }),
+        })),
+      removeProjectAddon: (projectId, addonId) =>
+        set((state) => ({
+          projects: state.projects.map((project) =>
+            project.id === projectId ? { ...project, addons: project.addons.filter((addon) => addon.id !== addonId) } : project,
+          ),
+        })),
       addCountdown: (name, at) => {
         const title = name.trim()
         if (!title || !at) return
@@ -356,6 +514,7 @@ export const useDashboardStore = create<DashboardState>()(
         const left = Math.max(0, Math.ceil((current.endsAt - Date.now()) / 1000))
         if (left <= 0) {
           const day = today()
+          const stamp = new Date().toISOString()
           set({
             pomodoro: {
               running: false,
@@ -363,14 +522,79 @@ export const useDashboardStore = create<DashboardState>()(
               remaining: FOCUS_SECONDS,
               sessions: { ...current.sessions, [day]: (current.sessions[day] ?? 0) + 1 },
             },
+            focusLogs: [
+              { id: uid(), at: stamp, durationMin: 25, kind: 'pomodoro' as const, label: 'Pomodoro' },
+              ...get().focusLogs,
+            ].slice(0, 200),
           })
           return true
         }
         if (left !== current.remaining) set({ pomodoro: { ...current, remaining: left } })
         return false
       },
+      addRoutineStep: (kind, label) => {
+        const title = label.trim()
+        if (!title) return
+        const key = kind === 'morning' ? 'morningSteps' : 'eveningSteps'
+        const list = get()[key]
+        if (list.some((step) => step.label.toLowerCase() === title.toLowerCase())) return
+        set({ [key]: [...list, { id: uid(), label: title }] })
+      },
+      removeRoutineStep: (kind, id) => {
+        const key = kind === 'morning' ? 'morningSteps' : 'eveningSteps'
+        set((state) => ({ [key]: state[key].filter((step) => step.id !== id) }))
+      },
+      toggleRoutineStep: (stepId, day) =>
+        set((state) => {
+          const dayChecks = { ...(state.routineChecks[day] ?? {}) }
+          dayChecks[stepId] = !dayChecks[stepId]
+          return { routineChecks: { ...state.routineChecks, [day]: dayChecks } }
+        }),
+      logFocusSession: (input) => {
+        const durationMin = Math.max(1, Math.round(input.durationMin) || 1)
+        set((state) => ({
+          focusLogs: [
+            {
+              id: uid(),
+              at: input.at ?? new Date().toISOString(),
+              durationMin,
+              kind: input.kind,
+              label: input.label?.trim() || (input.kind === 'deep' ? 'Deep work' : 'Pomodoro'),
+            },
+            ...state.focusLogs,
+          ].slice(0, 200),
+        }))
+      },
+      removeFocusLog: (id) => set((state) => ({ focusLogs: state.focusLogs.filter((item) => item.id !== id) })),
+      setReviewDay: (reviewDay) => set({ reviewDay }),
+      saveWeeklyReview: (weekKey, top3, notes) => {
+        const cleaned = top3.map((item) => item.trim()).filter(Boolean).slice(0, 3)
+        const entry: WeeklyReview = {
+          weekKey,
+          top3: cleaned,
+          notes: notes.trim(),
+          completedAt: new Date().toISOString(),
+        }
+        set((state) => ({
+          weeklyReviews: [entry, ...state.weeklyReviews.filter((item) => item.weekKey !== weekKey)].slice(0, 52),
+        }))
+      },
+      focusMinutesOn: (day) =>
+        get().focusLogs.filter((log) => log.at.slice(0, 10) === day).reduce((sum, log) => sum + log.durationMin, 0),
     }),
-    { name: 'kip-dashboard' },
+    {
+      name: 'kip-dashboard',
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<DashboardState>
+        return {
+          ...current,
+          ...saved,
+          projects: Array.isArray(saved.projects)
+            ? saved.projects.map((project) => normalizeProject(project as Project))
+            : current.projects,
+        }
+      },
+    },
   ),
 )
 

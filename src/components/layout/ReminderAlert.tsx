@@ -76,7 +76,7 @@ export function ReminderAlert() {
   return (
     <button
       type="button"
-      className="flex h-full w-full cursor-pointer items-center justify-center bg-transparent p-2 outline-none"
+      className="flex h-full w-full cursor-pointer items-center justify-center bg-transparent p-5 outline-none"
       onClick={() => window.api?.dismissReminder()}
       aria-label="Dismiss reminder"
     >
@@ -84,29 +84,40 @@ export function ReminderAlert() {
         initial={{ opacity: 0, scale: 0.9, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.28, ease: EASE }}
-        className={`w-full overflow-hidden rounded-[28px] px-8 py-8 text-center shadow-[0_24px_64px_rgba(0,0,0,0.35)] ${
-          dark ? 'border border-white/10 bg-[#2C2C2E]' : 'border border-black/8 bg-white'
-        }`}
+        className="w-full"
+        style={{
+          filter: dark
+            ? 'drop-shadow(0 18px 36px rgba(0,0,0,0.45))'
+            : 'drop-shadow(0 16px 32px rgba(0,0,0,0.16))',
+        }}
       >
         <div
-          className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
-            dark ? 'bg-[#0A84FF]/20 text-[#64D2FF]' : 'bg-[#0A84FF]/12 text-[#0A84FF]'
+          className={`overflow-hidden rounded-[28px] px-8 py-8 text-center backdrop-blur-[40px] backdrop-saturate-[180%] ${
+            dark
+              ? 'border border-white/10 bg-[rgba(44,44,46,0.92)]'
+              : 'border border-black/[0.06] bg-[rgba(255,255,255,0.94)]'
           }`}
         >
-          <Bell size={24} strokeWidth={2.2} />
+          <div
+            className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
+              dark ? 'bg-[#0A84FF]/20 text-[#64D2FF]' : 'bg-[#0A84FF]/12 text-[#0A84FF]'
+            }`}
+          >
+            <Bell size={24} strokeWidth={2.2} />
+          </div>
+          <div className={`text-[11px] font-semibold tracking-[0.18em] ${dark ? 'text-white/45' : 'text-[#8E8E93]'}`}>
+            REMINDER
+          </div>
+          <div
+            className={`mt-2 text-[28px] font-semibold leading-tight tracking-[-0.03em] ${
+              dark ? 'text-white' : 'text-[#1C1C1E]'
+            }`}
+          >
+            {alert.title}
+          </div>
+          <div className={`mt-2 text-[15px] font-medium ${dark ? 'text-white/65' : 'text-[#636366]'}`}>{timeLabel}</div>
+          <div className={`mt-5 text-[11px] tracking-wide ${dark ? 'text-white/35' : 'text-[#AEAEB2]'}`}>Click to dismiss</div>
         </div>
-        <div className={`text-[11px] font-semibold tracking-[0.18em] ${dark ? 'text-white/45' : 'text-[#8E8E93]'}`}>
-          REMINDER
-        </div>
-        <div
-          className={`mt-2 text-[28px] font-semibold leading-tight tracking-[-0.03em] ${
-            dark ? 'text-white' : 'text-[#1C1C1E]'
-          }`}
-        >
-          {alert.title}
-        </div>
-        <div className={`mt-2 text-[15px] font-medium ${dark ? 'text-white/65' : 'text-[#636366]'}`}>{timeLabel}</div>
-        <div className={`mt-5 text-[11px] tracking-wide ${dark ? 'text-white/35' : 'text-[#AEAEB2]'}`}>Click to dismiss</div>
       </motion.div>
     </button>
   )

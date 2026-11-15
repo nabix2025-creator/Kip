@@ -2,6 +2,15 @@ import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen, shell } f
 import { existsSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
 import { connectIcloud, disconnectIcloud, icloudStatus, syncIcloud } from './caldav'
+import {
+  disableFocusMode,
+  enableFocusMode,
+  forceDisableFocusMode,
+  getFocusModeStatus,
+  resumeFocusModeIfNeeded,
+  setFocusNagParent,
+  teardownFocusModeOnQuit,
+} from './focusMode'
 import { connectGoogle, disconnectGoogle, googleStatus, pushGoogle, syncGoogle } from './google'
 import { storeGet, storeSet } from './store'
 import type { PushAction } from './types'
@@ -19,6 +28,7 @@ let popup: BrowserWindow | null = null
 let alertWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
+let focusTeardownDone = false
 let trayEvents: { title: string; time: string }[] = []
 const reminderQueue: ReminderPayload[] = []
 let alertVisible = false
@@ -28,6 +38,22 @@ function preloadPath(): string {
   const dir = join(__dirname, '../preload')
   const mjs = join(dir, 'index.mjs')
   return existsSync(mjs) ? mjs : join(dir, 'index.js')
+}
+
+function resolveAppIcon(): string | undefined {
+  const candidates = [
+    join(process.resourcesPath, 'icon.ico'),
+    join(process.resourcesPath, 'icon.png'),
+    join(__dirname, '../../build/icon.ico'),
+    join(__dirname, '../../build/icons/icon-256.png'),
+    join(__dirname, '../../build/icon.png'),
+  ]
+  return candidates.find((path) => existsSync(path))
+}
+
+function appIconImage() {
+  const path = resolveAppIcon()
+  return path ? nativeImage.createFromPath(path) : null
 }
 
 function load(window: BrowserWindow, query = ''): void {
@@ -40,6 +66,7 @@ function load(window: BrowserWindow, query = ''): void {
 }
 
 function createMain(): void {
+  const icon = resolveAppIcon()
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
@@ -52,6 +79,7 @@ function createMain(): void {
     show: false,
     backgroundColor: '#00000000',
     title: 'Kip',
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: preloadPath(),
       contextIsolation: true,
@@ -84,6 +112,7 @@ function showMain(date?: string): void {
 
 function showPopup(): void {
   if (!popup || popup.isDestroyed()) {
+    const icon = resolveAppIcon()
     popup = new BrowserWindow({
       width: 360,
       height: 480,
@@ -96,6 +125,7 @@ function showPopup(): void {
       skipTaskbar: true,
       alwaysOnTop: true,
       backgroundColor: '#00000000',
+      ...(icon ? { icon } : {}),
       webPreferences: {
         preload: preloadPath(),
         contextIsolation: true,
@@ -123,12 +153,14 @@ const ALERT_HEIGHT = 260
 
 function ensureAlertWindow(): BrowserWindow {
   if (alertWindow && !alertWindow.isDestroyed()) return alertWindow
+  const icon = resolveAppIcon()
   alertWindow = new BrowserWindow({
     width: ALERT_WIDTH,
     height: ALERT_HEIGHT,
     frame: false,
     transparent: true,
-    hasShadow: true,
+    hasShadow: false,
+    ...(icon ? { icon } : {}),
     roundedCorners: true,
     resizable: false,
     movable: true,
@@ -243,6 +275,10 @@ function refreshTrayMenu(): void {
 }
 
 function blankIcon() {
+  const icon = appIconImage()
+  if (icon && !icon.isEmpty()) {
+    return icon.resize({ width: 16, height: 16 })
+  }
   return nativeImage.createFromBitmap(Buffer.alloc(16 * 16 * 4, 255), { width: 16, height: 16 })
 }
 
@@ -272,12 +308,21 @@ if (!app.requestSingleInstanceLock()) {
   app.setAppUserModelId('com.kip.app')
   registerProtocol()
   app.whenReady().then(() => {
+    // Packaged installs always open at Windows login — not user-optional.
+    if (app.isPackaged) {
+      storeSet('openAtLogin', true)
+      app.setLoginItemSettings({ openAtLogin: true, path: process.execPath })
+    }
+
     createMain()
+    setFocusNagParent(() => mainWindow)
     tray = new Tray(blankIcon())
     tray.setToolTip('Kip')
     refreshTrayMenu()
     tray.on('click', () => showPopup())
     tray.on('right-click', () => tray?.popUpContextMenu())
+
+    void resumeFocusModeIfNeeded()
 
     const bootUrl = process.argv.find((item) => item.startsWith('kip://'))
     if (bootUrl) {
@@ -285,6 +330,24 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     ipcMain.handle('shell:openExternal', (_event, url: string) => shell.openExternal(url))
+    ipcMain.handle('net:fetchText', async (_event, url: string) => {
+      const allowed = new Set(['feeds.bbci.co.uk', 'www.prothomalo.com'])
+      let parsed: URL
+      try {
+        parsed = new URL(url)
+      } catch {
+        throw new Error('Invalid URL')
+      }
+      if (parsed.protocol !== 'https:' || !allowed.has(parsed.hostname)) {
+        throw new Error('Host not allowed')
+      }
+      const response = await fetch(parsed.toString(), {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      return response.text()
+    })
     ipcMain.on('window:focus', () => showMain())
 
     ipcMain.on('window:minimize', () => {
@@ -339,12 +402,46 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('icloud:disconnect', () => disconnectIcloud())
     ipcMain.handle('icloud:status', () => icloudStatus())
 
+    ipcMain.handle('focusMode:get', () => getFocusModeStatus())
+    ipcMain.handle(
+      'focusMode:enable',
+      (_event, options?: { minutes?: number; endsAt?: string }) => enableFocusMode(options),
+    )
+    ipcMain.handle('focusMode:disable', () => disableFocusMode())
+    ipcMain.handle('focusMode:forceDisable', () => forceDisableFocusMode())
+
+    ipcMain.handle('loginItem:get', () => {
+      if (app.isPackaged) {
+        storeSet('openAtLogin', true)
+        app.setLoginItemSettings({ openAtLogin: true, path: process.execPath })
+      }
+      const settings = app.getLoginItemSettings()
+      return { openAtLogin: app.isPackaged ? true : settings.openAtLogin, openAsHidden: settings.openAsHidden }
+    })
+    ipcMain.handle('loginItem:set', () => {
+      // Ignore attempts to turn startup off — always re-enable for packaged builds.
+      storeSet('openAtLogin', true)
+      if (app.isPackaged) {
+        app.setLoginItemSettings({ openAtLogin: true, path: process.execPath })
+      }
+      const settings = app.getLoginItemSettings()
+      return { openAtLogin: true, openAsHidden: settings.openAsHidden }
+    })
+
     setupAutoUpdater()
   })
 }
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
   quitting = true
+  if (focusTeardownDone) return
+  event.preventDefault()
+  void teardownFocusModeOnQuit()
+    .catch(() => undefined)
+    .finally(() => {
+      focusTeardownDone = true
+      app.quit()
+    })
 })
 
 app.on('window-all-closed', () => {

@@ -125,8 +125,10 @@ function ScrollArea({
     if (!node) return
     const now = new Date()
     const hour = days.some((day) => isSameDay(day, now)) ? now.getHours() + now.getMinutes() / 60 : 7.5
-    node.scrollTo({ top: Math.max(0, hour * HOUR_HEIGHT - node.clientHeight * 0.28), behavior: 'smooth' })
-  }, [scrollKey, scrollerRef])
+    const nowY = hour * HOUR_HEIGHT
+    // Center the now-line (or morning fallback) in the visible time grid.
+    node.scrollTo({ top: Math.max(0, nowY - node.clientHeight / 2), behavior: 'smooth' })
+  }, [scrollKey, scrollerRef, days])
   return (
     <div ref={scrollerRef} className="scroll-momentum min-h-0 flex-1">
       {children}

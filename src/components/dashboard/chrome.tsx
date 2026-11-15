@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { toneDot, toneText, toneWash, type DashTone } from '@/components/dashboard/tones'
 
 export type DeskId =
   | 'today'
@@ -7,6 +8,9 @@ export type DeskId =
   | 'finance'
   | 'habits'
   | 'goals'
+  | 'routines'
+  | 'focus'
+  | 'review'
   | 'notes'
   | 'journal'
   | 'library'
@@ -41,14 +45,28 @@ export function Desk({
   )
 }
 
-export function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('rounded-[14px] bg-primary shadow-card', className)}>{children}</div>
+export function Panel({ children, className, tone }: { children: ReactNode; className?: string; tone?: DashTone }) {
+  return (
+    <div
+      className={cn(
+        'relative overflow-hidden rounded-[14px] bg-primary shadow-card',
+        tone && 'ring-1 ring-inset ring-black/[0.03]',
+        className,
+      )}
+    >
+      {tone && <div aria-hidden className={cn('pointer-events-none absolute inset-x-0 top-0 h-10', toneWash[tone])} />}
+      <div className="relative">{children}</div>
+    </div>
+  )
 }
 
-export function PanelLabel({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
+export function PanelLabel({ children, aside, tone }: { children: ReactNode; aside?: ReactNode; tone?: DashTone }) {
   return (
     <div className="mb-1 flex items-center justify-between gap-3 px-3 pt-3">
-      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">{children}</h2>
+      <h2 className={cn('flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em]', tone ? toneText[tone] : 'text-tertiary')}>
+        {tone && <span aria-hidden className={cn('h-1.5 w-1.5 shrink-0 rounded-full', toneDot[tone])} />}
+        {children}
+      </h2>
       {aside}
     </div>
   )

@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Menu, PanelRight, Plus, Search, Settings } f
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EASE } from '@/lib/constants'
+import { CalendarMenu } from '@/components/calendar/CalendarMenu'
 import { IconButton } from '@/components/ui/IconButton'
 import { ViewSwitcher } from '@/components/ui/ViewSwitcher'
 import { WindowControls } from '@/components/layout/WindowControls'
@@ -24,6 +25,7 @@ const views = {
 
 export function MainPanel() {
   const { view, title, navDirection, range, go, goToday, changeView } = useCalendar()
+  const leftOpen = useCalendarStore((state) => state.leftOpen)
   const toggleLeft = useCalendarStore((state) => state.toggleLeft)
   const toggleRight = useCalendarStore((state) => state.toggleRight)
   const rightOpen = useCalendarStore((state) => state.rightOpen)
@@ -41,6 +43,10 @@ export function MainPanel() {
     document.title = `${title} — Kip`
   }, [title])
 
+  useEffect(() => {
+    if (leftOpen) setMenu(false)
+  }, [leftOpen])
+
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-primary">
       <header
@@ -51,13 +57,18 @@ export function MainPanel() {
         }}
       >
         <div className="no-drag flex min-w-0 items-center justify-start gap-1">
-          <IconButton aria-label="Menu" onClick={() => setMenu((open) => !open)}>
-            <Menu size={16} strokeWidth={1.8} />
-          </IconButton>
-          <IconButton aria-label="New event" onClick={openNl}>
-            <Plus size={17} strokeWidth={2} />
-          </IconButton>
-          <div className="ml-1 min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em] text-primary/80">{title}</div>
+          {!leftOpen && (
+            <>
+              <IconButton aria-label="Menu" onClick={() => setMenu((open) => !open)}>
+                <Menu size={16} strokeWidth={1.8} />
+              </IconButton>
+              <IconButton aria-label="New event" onClick={openNl}>
+                <Plus size={17} strokeWidth={2} />
+              </IconButton>
+              <div className="ml-1 min-w-0 truncate text-[13px] font-semibold tracking-[-0.02em] text-primary/80">{title}</div>
+            </>
+          )}
+          <CalendarMenu />
         </div>
 
         <div className="no-drag flex items-center justify-center">
@@ -83,9 +94,9 @@ export function MainPanel() {
           {!rightOpen && <WindowControls />}
         </div>
 
-        {menu && (
+        {!leftOpen && menu && (
           <div className="glass no-drag absolute left-3 top-11 z-40 w-56 overflow-hidden p-1.5" onMouseLeave={() => setMenu(false)}>
-            <MenuButton label="Hide sidebar" hint="Ctrl \\" onClick={choose(toggleLeft)} />
+            <MenuButton label="Show sidebar" hint="Ctrl \\" onClick={choose(toggleLeft)} />
             <MenuButton label="Show agenda" onClick={choose(toggleRight)} />
             <MenuButton label="Go to today" hint="Ctrl T" onClick={choose(goToday)} />
             <MenuButton label="New event" hint="Ctrl K" onClick={choose(openNl)} />

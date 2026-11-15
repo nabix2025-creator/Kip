@@ -1,16 +1,19 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { mergeRemoteCalendars } from '@/lib/googleCalendar'
+import { formatFocusEndsAt, formatFocusRemaining } from '@/lib/focusDuration'
+import { FocusDurationDialog, type FocusDurationChoice } from '@/components/ui/FocusDurationDialog'
 import { Modal } from '@/components/ui/Modal'
 import { Segmented } from '@/components/ui/Segmented'
 import { Select } from '@/components/ui/Select'
 import { Switch } from '@/components/ui/Switch'
+import { useFocusModeStatus } from '@/hooks/useFocusModeStatus'
 import { useAuthStore } from '@/store/authStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useEventStore } from '@/store/eventStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { AccountStatus } from '@/vite-env'
 
-const sections = ['General', 'Account', 'Calendars', 'Alerts', 'Weather', 'Calendars sync', 'Shortcuts'] as const
+const sections = ['General', 'Focus', 'Account', 'Calendars', 'Alerts', 'Weather', 'Calendars sync', 'Shortcuts'] as const
 
 export function SettingsModal() {
   const open = useCalendarStore((state) => state.settingsOpen)
@@ -35,6 +38,7 @@ export function SettingsModal() {
         </aside>
         <div className="min-w-0 flex-1 p-6">
           {section === 'General' && <GeneralSection />}
+          {section === 'Focus' && <FocusSection />}
           {section === 'Account' && <KipAccountSection />}
           {section === 'Calendars' && <CalendarSection />}
           {section === 'Alerts' && <AlertSection />}
@@ -51,6 +55,18 @@ function GeneralSection() {
   const theme = useSettingsStore((state) => state.theme)
   const weekStartsOn = useSettingsStore((state) => state.weekStartsOn)
   const timeFormat = useSettingsStore((state) => state.timeFormat)
+  const setOpenAtLogin = useSettingsStore((state) => state.setOpenAtLogin)
+  const desktop = Boolean(window.api?.loginItemGet)
+
+  useEffect(() => {
+    setOpenAtLogin(true)
+    if (!window.api?.loginItemGet) return
+    void window.api
+      .loginItemGet()
+      .then(() => setOpenAtLogin(true))
+      .catch(() => undefined)
+  }, [setOpenAtLogin])
+
   return (
     <div className="space-y-5">
       <h2 className="mb-1 text-[28px] font-bold tracking-[-0.03em]">General</h2>
@@ -63,6 +79,150 @@ function GeneralSection() {
       <Row label="Time format">
         <Segmented value={timeFormat} onChange={useSettingsStore.getState().setTimeFormat} options={[{ value: '12h', label: '12-hour' }, { value: '24h', label: '24-hour' }]} />
       </Row>
+      <Row label="Open Kip at login">
+        <span className="rounded-[8px] bg-fill/10 px-2.5 py-1 text-[12px] font-semibold text-secondary">Always on</span>
+      </Row>
+      <p className="text-body text-secondary">
+        {desktop
+          ? 'Kip always launches when Windows starts. This cannot be turned off.'
+          : 'Startup login is mandatory in the desktop app.'}
+      </p>
+    </div>
+  )
+}
+
+function FocusSection() {
+  const preferred = useSettingsStore((state) => state.focusModePreferred)
+  const setPreferred = useSettingsStore((state) => state.setFocusModePreferred)
+  const [status, setStatus] = useFocusModeStatus()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const desktop = Boolean(window.api?.focusModeGet)
+
+  useEffect(() => {
+    if (!status) return
+    setPreferred(status.enabled)
+    if (status.message) setMessage(status.message)
+  }, [status, setPreferred])
+
+  const applyStatus = (next: Awaited<ReturnType<NonNullable<typeof window.api>['focusModeGet']>>) => {
+    setStatus(next)
+    setPreferred(next.enabled)
+    setMessage(next.message)
+  }
+
+  const startWithDuration = async (choice: FocusDurationChoice) => {
+    if (!window.api?.focusModeEnable) {
+      setMessage('Focus Mode needs the Kip desktop app on Windows.')
+      return
+    }
+    setBusy(true)
+    try {
+      const next = await window.api.focusModeEnable(choice)
+      applyStatus(next)
+    } catch {
+      setMessage('Could not start Focus Mode.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggle = async (enabled: boolean) => {
+    if (!window.api?.focusModeEnable || !window.api.focusModeDisable) {
+      setMessage('Focus Mode needs the Kip desktop app on Windows.')
+      return
+    }
+    if (enabled) {
+      setPickerOpen(true)
+      return
+    }
+    setBusy(true)
+    try {
+      // Off is refused while the timer runs — popup + stays on.
+      const next = await window.api.focusModeDisable()
+      applyStatus(next)
+    } catch {
+      setMessage('Could not change Focus Mode.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const forceOff = async () => {
+    if (!window.api?.focusModeForceDisable) {
+      setMessage('Focus Mode needs the Kip desktop app on Windows.')
+      return
+    }
+    setBusy(true)
+    try {
+      const next = await window.api.focusModeForceDisable()
+      applyStatus(next)
+    } catch {
+      setMessage('Could not force-off Focus Mode.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remaining = status?.enabled ? formatFocusRemaining(status.remainingMs) : ''
+  const until = status?.enabled ? formatFocusEndsAt(status.endsAt) : ''
+  const showForceOff = Boolean(status?.enabled || status?.hostsActive)
+
+  return (
+    <div className="space-y-5">
+      <h2 className="mb-1 text-[28px] font-bold tracking-[-0.03em]">Focus Mode</h2>
+      <Row label="Block distractions">
+        <Switch checked={status?.enabled ?? preferred} onChange={(value) => void toggle(value)} />
+      </Row>
+      {status?.enabled && remaining && (
+        <Row label="Session ends">
+          <span className="text-[13px] font-semibold tabular-nums text-accent-orange">
+            {remaining}
+            {until ? ` · ${until}` : ''}
+          </span>
+        </Row>
+      )}
+      {showForceOff && (
+        <div className="space-y-2 rounded-[12px] border border-accent-orange/25 bg-accent-orange/5 p-4">
+          <p className="text-[13px] font-semibold text-primary">Emergency unlock</p>
+          <p className="text-[12px] leading-relaxed text-secondary">
+            Force off clears the timer, restores the hosts file, and stops app blocking — even mid-session. Quitting Kip alone
+            does not unlock sites while a session is active.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void forceOff()}
+            className="rounded-[8px] bg-accent-orange px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            Force off Focus Mode
+          </button>
+        </div>
+      )}
+      {busy && <p className="text-body text-secondary">Applying… approve the Windows admin prompt if shown.</p>}
+      {message && <p className="text-body text-secondary">{message}</p>}
+      <div className="space-y-2 rounded-[12px] bg-primary p-4 text-[13px] leading-relaxed text-secondary shadow-card">
+        <p>
+          When you turn Focus Mode on, pick a duration (25m, 45m, 1h, 2h, or custom). Kip redirects YouTube, Instagram, TikTok,
+          Netflix, and Discord (web) via the hosts file, and closes Instagram / Discord desktop apps if they reopen.
+        </p>
+        <p>
+          While the timer is running, Focus Mode stays locked — flipping Off shows a reminder and keeps blocking. Use{' '}
+          <span className="font-semibold text-primary">Force off Focus Mode</span> above to unlock early. When the session
+          ends, blocking turns off automatically. Tampering with the hosts block restores it and shows the same reminder. Site
+          blocking needs admin once (UAC).
+        </p>
+        <p>
+          Limits: VPN / alternate DNS / mobile apps / browser extensions that bypass hosts are out of scope. Process names must match
+          (Instagram.exe, Discord.exe).
+        </p>
+        {!desktop && <p className="text-accent-orange">Open the desktop Kip app to enable system blocking.</p>}
+        {status?.needsElevation && (
+          <p className="text-accent-orange">Hosts not updated yet — turn Focus Mode on again and approve admin to block websites.</p>
+        )}
+      </div>
+      <FocusDurationDialog open={pickerOpen} onClose={() => setPickerOpen(false)} onConfirm={(choice) => void startWithDuration(choice)} />
     </div>
   )
 }

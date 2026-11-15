@@ -4,25 +4,28 @@ import { BookOpen, CheckCircle2, Flag, FolderKanban, LayoutDashboard, NotebookPe
 import { parseNaturalLanguage } from '@/lib/nlpParser'
 import { EASE } from '@/lib/constants'
 import { cn } from '@/lib/cn'
+import { dueForPeriod, inferPeriod, TASK_PERIODS } from '@/lib/taskPeriod'
 import { Segmented } from '@/components/ui/Segmented'
 import { TaskItem } from '@/components/tasks/TaskItem'
-import { useTasks, type TaskFilter } from '@/hooks/useTasks'
+import { useTasks } from '@/hooks/useTasks'
 import { useTaskStore } from '@/store/taskStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import type { DeskId } from '@/components/dashboard/chrome'
+import type { TaskPeriod } from '@/types'
 
 const QUICK: { id: DeskId; label: string; icon: typeof StickyNote }[] = [
   { id: 'notes', label: 'Notes', icon: StickyNote },
   { id: 'journal', label: 'Journal', icon: NotebookPen },
   { id: 'projects', label: 'Projects', icon: FolderKanban },
   { id: 'habits', label: 'Habits', icon: Target },
+  { id: 'routines', label: 'Routines', icon: CheckCircle2 },
   { id: 'goals', label: 'Goals', icon: Flag },
   { id: 'finance', label: 'Finance', icon: Wallet },
   { id: 'library', label: 'Shelf', icon: BookOpen },
 ]
 
 export function TaskList() {
-  const [filter, setFilter] = useState<TaskFilter>('all')
+  const [period, setPeriod] = useState<TaskPeriod>('today')
   const [title, setTitle] = useState('')
   const [listId, setListId] = useState('')
   const [scope, setScope] = useState<'all' | string>('all')
@@ -31,7 +34,7 @@ export function TaskList() {
   const addList = useTaskStore((state) => state.addList)
   const openDashboard = useCalendarStore((state) => state.openDashboard)
   const openWhiteboard = useCalendarStore((state) => state.openWhiteboard)
-  const filtered = useTasks(filter)
+  const filtered = useTasks(period)
   const activeList = listId || lists[0]?.id || ''
   const tasks = useMemo(
     () => (scope === 'all' ? filtered : filtered.filter((task) => task.listId === scope)),
@@ -56,8 +59,11 @@ export function TaskList() {
           const parsed = parseNaturalLanguage(title)
           const name = !parsed.start || parsed.title === 'New Event' ? title.trim() : parsed.title
           if (!name) return
-          addTask({ title: name, listId: activeList, due: parsed.start?.toISOString() })
+          const nextPeriod = parsed.start ? inferPeriod(parsed.start) : period
+          const due = parsed.start?.toISOString() ?? dueForPeriod(nextPeriod)
+          addTask({ title: name, listId: activeList, period: nextPeriod, due })
           setTitle('')
+          if (nextPeriod !== period) setPeriod(nextPeriod)
         }}
       >
         <Plus size={14} strokeWidth={2.2} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" />
@@ -71,13 +77,10 @@ export function TaskList() {
 
       <div className="mt-3">
         <Segmented
-          value={filter}
-          onChange={setFilter}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'today', label: 'Today' },
-            { value: 'upcoming', label: 'Upcoming' },
-          ]}
+          value={period}
+          onChange={setPeriod}
+          className="[&_button]:min-w-0 [&_button]:flex-1 [&_button]:px-1 [&_button]:text-[11px]"
+          options={TASK_PERIODS.map((item) => ({ value: item.value, label: item.label }))}
         />
       </div>
 
@@ -126,7 +129,7 @@ export function TaskList() {
             </div>
             <div className="text-[13px] text-secondary">No Todos</div>
             <div className="max-w-[170px] text-[11px] leading-relaxed text-tertiary">
-              Type something like “Call Sam tomorrow 3pm”
+              Todos for {TASK_PERIODS.find((item) => item.value === period)?.label.toLowerCase()} stay in this bucket
             </div>
           </motion.div>
         )}
@@ -148,15 +151,15 @@ export function TaskList() {
               </button>
             )
           })}
+          <button
+            type="button"
+            onClick={openWhiteboard}
+            className="flex flex-col items-center gap-1 rounded-[9px] bg-fill/8 px-1 py-1.5 text-secondary transition-colors hover:bg-fill/12 hover:text-primary"
+          >
+            <Presentation size={13} strokeWidth={2} />
+            <span className="truncate text-[9px] font-medium leading-none">Whiteboard</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={openWhiteboard}
-          className="flex h-8 w-full items-center justify-center gap-1.5 rounded-[9px] bg-fill/10 text-[12px] font-medium text-secondary transition-colors hover:bg-fill/14 hover:text-primary"
-        >
-          <Presentation size={13} strokeWidth={2} />
-          Whiteboard
-        </button>
         <button
           type="button"
           onClick={() => openDashboard('today')}

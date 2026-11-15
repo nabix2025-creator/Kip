@@ -80,7 +80,7 @@ export async function scanReminders(
 
   for (const event of events) {
     if (!visible.has(event.calendarId)) continue
-    if (parseISO(event.end).getTime() < now) continue
+    const endAt = parseISO(event.end).getTime()
     const reminders = event.reminders?.length ? event.reminders : []
     const anchor = event.allDay ? new Date(startOfDay(parseISO(event.start)).setHours(9, 0, 0, 0)) : parseISO(event.start)
     for (const minutes of reminders) {
@@ -93,6 +93,25 @@ export async function scanReminders(
       const key = `event|${event.id}|${event.start}|${minutes}`
       if (await markAndNotify(fired, key, { title: event.title, body, start: event.start, time: `${time} · starts in ${when}` })) {
         changed = true
+      }
+    }
+
+    if (!event.allDay) {
+      const endDelta = now - endAt
+      if (endDelta >= 0 && endDelta <= CATCHUP_MS) {
+        const time = formatEventTime(event)
+        const body = event.location ? `Ending now · ${event.location}` : 'Ending now'
+        const key = `event-end|${event.id}|${event.end}`
+        if (
+          await markAndNotify(fired, key, {
+            title: event.title,
+            body,
+            start: event.end,
+            time: `${time} · ending now`,
+          })
+        ) {
+          changed = true
+        }
       }
     }
   }

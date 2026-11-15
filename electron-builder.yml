@@ -2,9 +2,16 @@ appId: com.kip.app
 productName: Kip
 directories:
   output: release
+  buildResources: build
+icon: icon.ico
 files:
   - out/**
   - package.json
+extraResources:
+  - from: build/icon.ico
+    to: icon.ico
+  - from: build/icon.png
+    to: icon.png
 asar: true
 protocols:
   - name: Kip
@@ -16,6 +23,7 @@ publish:
   repo: Kip
   releaseType: release
 win:
+  icon: icon.ico
   target:
     - nsis
   artifactName: ${productName}-${version}-Setup.${ext}
@@ -23,3 +31,6 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   shortcutName: Kip
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico

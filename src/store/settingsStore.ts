@@ -16,6 +16,9 @@ interface SettingsState {
   googleClientId: string
   googleClientSecret: string
   firebase: FirebaseConfig
+  /** Renderer mirror; Electron main is source of truth via window.api. */
+  openAtLogin: boolean
+  focusModePreferred: boolean
   setTheme: (theme: ThemeMode) => void
   setWeekStartsOn: (weekStartsOn: 0 | 1) => void
   setTimeFormat: (timeFormat: TimeFormat) => void
@@ -28,6 +31,8 @@ interface SettingsState {
   setGoogleClientId: (value: string) => void
   setGoogleClientSecret: (value: string) => void
   setFirebase: (patch: Partial<FirebaseConfig>) => void
+  setOpenAtLogin: (enabled: boolean) => void
+  setFocusModePreferred: (enabled: boolean) => void
 }
 
 const emptyFirebase: FirebaseConfig = {
@@ -54,6 +59,8 @@ export const useSettingsStore = create<SettingsState>()(
       googleClientId: '',
       googleClientSecret: '',
       firebase: emptyFirebase,
+      openAtLogin: true,
+      focusModePreferred: false,
       setTheme: (theme) => set({ theme }),
       setWeekStartsOn: (weekStartsOn) => set({ weekStartsOn }),
       setTimeFormat: (timeFormat) => set({ timeFormat }),
@@ -66,15 +73,19 @@ export const useSettingsStore = create<SettingsState>()(
       setGoogleClientId: (googleClientId) => set({ googleClientId }),
       setGoogleClientSecret: (googleClientSecret) => set({ googleClientSecret }),
       setFirebase: (patch) => set((state) => ({ firebase: { ...state.firebase, ...patch } })),
+      setOpenAtLogin: (openAtLogin) => set({ openAtLogin }),
+      setFocusModePreferred: (focusModePreferred) => set({ focusModePreferred }),
     }),
     {
       name: 'kip-settings',
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<SettingsState>
         return {
           ...state,
           theme: (state.theme as ThemeMode | undefined) ?? 'system',
+          openAtLogin: state.openAtLogin ?? true,
+          focusModePreferred: state.focusModePreferred ?? false,
         }
       },
     },

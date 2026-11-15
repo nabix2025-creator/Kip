@@ -59,9 +59,14 @@ export function EventBlock({ event, top, height, col, cols, color, theme, timeFo
     const up = (next: PointerEvent) => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      node?.classList.remove('is-dragging')
-      if (node) node.style.transform = ''
-      if (node) node.style.height = ''
+      // Restore React-controlled geometry. Clearing height to '' collapses the
+      // absolute block to content size until the next store/now re-render, which
+      // looks like a half-height event while start/end times stay unchanged.
+      if (node) {
+        node.classList.remove('is-dragging')
+        node.style.transform = ''
+        node.style.height = `${height}px`
+      }
       const moved = Math.abs(next.clientX - originX) > 4 || Math.abs(next.clientY - originY) > 4
       if (!moved) {
         onOpen(event, next.clientX, next.clientY)

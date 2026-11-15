@@ -10,7 +10,7 @@ import { useTaskStore } from '@/store/taskStore'
 import { useWhiteboardStore } from '@/store/whiteboardStore'
 
 const OWNER_KEY = 'kip-data-owner'
-const CLEAR_KEYS = ['kip-cloud-sync-at', 'kip-sync-at', 'kip-fired-reminders'] as const
+const CLEAR_KEYS = ['kip-cloud-sync-at', 'kip-sync-at', 'kip-fired-reminders', 'kip-habit-nudge'] as const
 
 /** Wipe local calendar/dashboard data to a clean slate for a new or switched account. */
 export function resetLocalUserData(): void {
@@ -41,6 +41,12 @@ export function resetLocalUserData(): void {
     ledger: [],
     wishes: [],
     pomodoro: { running: false, endsAt: null, remaining: 25 * 60, sessions: {} },
+    morningSteps: [],
+    eveningSteps: [],
+    routineChecks: {},
+    focusLogs: [],
+    weeklyReviews: [],
+    reviewDay: 0,
   })
 
   const board = { id: uid(), title: 'Untitled', items: [], updatedAt: Date.now() }

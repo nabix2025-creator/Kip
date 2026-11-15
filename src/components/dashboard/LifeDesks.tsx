@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addMonths, format, startOfMonth } from 'date-fns'
+import { addMonths, format, formatDistanceToNowStrict, startOfMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
 import { toDateKey } from '@/lib/dates'
 import { cn } from '@/lib/cn'
@@ -99,13 +99,19 @@ export function FinanceDesk({ now }: { now: Date }) {
 }
 
 export function NewsDesk() {
-  const { items, status, refresh } = useHeadlines()
+  const { items, status, updatedAt, refresh } = useHeadlines()
+  const detail =
+    status === 'loading'
+      ? 'Updating…'
+      : updatedAt
+        ? `Updated ${formatDistanceToNowStrict(updatedAt)} ago`
+        : 'BBC Bangla · Prothom Alo'
   return (
     <Desk
       title="Local news"
-      detail="BBC Bangla"
+      detail={detail}
       extra={
-        <button type="button" onClick={refresh} className="mac-toolbar-btn inline-flex items-center gap-1.5">
+        <button type="button" onClick={refresh} className="mac-toolbar-btn inline-flex items-center gap-1.5" disabled={status === 'loading'}>
           <RefreshCw size={13} className={status === 'loading' ? 'animate-spin' : ''} />
           Refresh
         </button>
@@ -124,7 +130,7 @@ export function NewsDesk() {
           ))}
         </div>
         {status === 'loading' && items.length === 0 && <EmptyCopy>Loading headlines…</EmptyCopy>}
-        {status === 'error' && items.length === 0 && <EmptyCopy>Couldn’t reach BBC Bangla. Refresh to try again.</EmptyCopy>}
+        {status === 'error' && items.length === 0 && <EmptyCopy>Couldn’t reach local news. Refresh to try again.</EmptyCopy>}
       </Panel>
     </Desk>
   )

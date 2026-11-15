@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import { parseDateKey, toDateKey } from '@/lib/dates'
 import { cn } from '@/lib/cn'
+import { eventStyle } from '@/lib/colors'
+import { useTheme } from '@/hooks/useTheme'
 import { useDashboardStore, type MediaKind } from '@/store/dashboardStore'
 import { CheckDot, EmptyCopy, NOTE_COLORS, RemoveButton } from '@/components/dashboard/ui'
 import { Desk, Panel } from '@/components/dashboard/chrome'
@@ -14,6 +16,7 @@ const MEDIA: { id: MediaKind; label: string }[] = [
 ]
 
 export function NotesDesk() {
+  const theme = useTheme()
   const notes = useDashboardStore((state) => state.notes)
   const color = useDashboardStore((state) => state.noteColor)
   const setColor = useDashboardStore((state) => state.setNoteColor)
@@ -52,16 +55,25 @@ export function NotesDesk() {
           </div>
         </form>
         <div className="p-2">
-          {notes.map((note) => (
-            <div key={note.id} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-fill/8">
-              <span className="mt-0.5 h-full w-[3px] self-stretch rounded-full" style={{ background: note.color }} />
-              <div className="min-w-0 flex-1">
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{note.text}</p>
-                <p className="mt-1 text-[11px] text-tertiary">{noteAge(note.createdAt)}</p>
+          {notes.map((note) => {
+            const accent = note.color || color || NOTE_COLORS[0]
+            const colors = eventStyle(accent, theme)
+            return (
+              <div
+                key={note.id}
+                className="mb-1 flex items-start gap-3 rounded-lg px-2.5 py-2"
+                style={{ background: colors.background, boxShadow: `inset 3px 0 0 ${colors.bar}` }}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed" style={{ color: colors.color }}>
+                    {note.text}
+                  </p>
+                  <p className="mt-1 text-[11px] text-tertiary">{noteAge(note.createdAt)}</p>
+                </div>
+                <RemoveButton label="Delete note" onClick={() => remove(note.id)} />
               </div>
-              <RemoveButton label="Delete note" onClick={() => remove(note.id)} />
-            </div>
-          ))}
+            )
+          })}
           {notes.length === 0 && <EmptyCopy>Notes you save stay on this machine.</EmptyCopy>}
         </div>
       </Panel>

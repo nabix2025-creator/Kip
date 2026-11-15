@@ -5,6 +5,7 @@ export type TimeFormat = '12h' | '24h'
 export type CalendarProvider = 'local' | 'google' | 'icloud'
 export type SourceGroup = 'iCloud' | 'Google' | 'Other'
 export type EventStatus = 'open' | 'done' | 'missed'
+export type TaskPeriod = 'today' | 'tomorrow' | 'week' | 'month'
 
 export interface Recurrence {
   freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -62,6 +63,8 @@ export interface Task {
   title: string
   notes?: string
   completed: boolean
+  /** Exclusive time bucket; preferred over inferring from due. */
+  period?: TaskPeriod
   due?: string
   priority: Priority
   recurrence?: Recurrence

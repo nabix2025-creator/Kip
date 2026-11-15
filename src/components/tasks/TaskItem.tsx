@@ -1,13 +1,17 @@
-import { format, isBefore, isToday, parseISO, startOfDay, addDays } from 'date-fns'
+import { addMinutes, format, isBefore, isToday, parseISO, startOfDay } from 'date-fns'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Trash2 } from 'lucide-react'
+import { CalendarPlus, Check, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { EASE } from '@/lib/constants'
+import { blankDraft } from '@/lib/draft'
 import { formatTime } from '@/lib/dates'
+import { periodLabel, resolveTaskPeriod, TASK_PERIODS } from '@/lib/taskPeriod'
 import type { Priority, Task } from '@/types'
 import { ContextMenu } from '@/components/ui/ContextMenu'
 import { askConfirm } from '@/store/confirmStore'
+import { useCalendarStore } from '@/store/calendarStore'
+import { useEventStore } from '@/store/eventStore'
 import { useTaskStore } from '@/store/taskStore'
 import { useSettingsStore } from '@/store/settingsStore'
 
@@ -21,15 +25,36 @@ const PRIORITY: Record<Priority, string> = {
 export function TaskItem({ task, accent }: { task: Task; accent?: string }) {
   const toggle = useTaskStore((state) => state.toggleTask)
   const remove = useTaskStore((state) => state.deleteTask)
-  const reschedule = useTaskStore((state) => state.rescheduleTask)
+  const setTaskPeriod = useTaskStore((state) => state.setTaskPeriod)
   const update = useTaskStore((state) => state.updateTask)
+  const addEvent = useEventStore((state) => state.addEvent)
+  const pushToast = useCalendarStore((state) => state.pushToast)
   const timeFormat = useSettingsStore((state) => state.timeFormat)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
+  const period = resolveTaskPeriod(task)
   const overdue =
     task.due &&
     !task.completed &&
+    period === 'today' &&
     isBefore(startOfDay(parseISO(task.due)), startOfDay(new Date())) &&
     !isToday(parseISO(task.due))
+  const hasClock = Boolean(task.due && format(parseISO(task.due), 'HH:mm') !== '00:00')
+
+  const blockOnCalendar = () => {
+    const start = new Date()
+    start.setSeconds(0, 0)
+    start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15)
+    const end = addMinutes(start, 60)
+    addEvent(
+      blankDraft({
+        title: task.title,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        notes: task.notes ? `From todo · ${task.notes}` : 'Blocked from Todo',
+      }),
+    )
+    pushToast(`Blocked “${task.title}” for 1 hour`)
+  }
 
   return (
     <motion.div
@@ -78,15 +103,24 @@ export function TaskItem({ task, accent }: { task: Task; accent?: string }) {
               {task.title}
             </span>
           </span>
-          {task.due && (
-            <span className={cn('mt-0.5 block pl-3 text-[11px]', overdue ? 'text-accent-red' : 'text-tertiary')}>
-              {isToday(parseISO(task.due)) ? 'Today' : format(parseISO(task.due), 'MMM d')}
-              {format(parseISO(task.due), 'HH:mm') !== '00:00' ? ` · ${formatTime(parseISO(task.due), timeFormat)}` : ''}
-              {overdue ? ' · Overdue' : ''}
-            </span>
-          )}
+          <span className={cn('mt-0.5 block pl-3 text-[11px]', overdue ? 'text-accent-red' : 'text-tertiary')}>
+            {periodLabel(period)}
+            {hasClock && task.due ? ` · ${formatTime(parseISO(task.due), timeFormat)}` : ''}
+            {overdue ? ' · Overdue' : ''}
+          </span>
         </button>
       </div>
+      {!task.completed && (
+        <button
+          type="button"
+          aria-label="Block on calendar"
+          title="Block on calendar"
+          onClick={blockOnCalendar}
+          className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-tertiary opacity-0 transition-opacity hover:bg-fill/10 hover:text-accent-blue group-hover:opacity-100"
+        >
+          <CalendarPlus size={12} strokeWidth={2} />
+        </button>
+      )}
       <button
         type="button"
         aria-label="Delete todo"
@@ -105,9 +139,14 @@ export function TaskItem({ task, accent }: { task: Task; accent?: string }) {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: 'Tomorrow', onClick: () => reschedule(task.id, addDays(new Date(), 1).toISOString()) },
-            { label: 'Next week', onClick: () => reschedule(task.id, addDays(new Date(), 7).toISOString()) },
-            { label: 'Clear date', onClick: () => reschedule(task.id, undefined) },
+            ...TASK_PERIODS.map((item) => ({
+              label: item.label,
+              onClick: () => setTaskPeriod(task.id, item.value),
+            })),
+            {
+              label: 'Block on calendar',
+              onClick: blockOnCalendar,
+            },
             {
               label: task.priority === 'high' ? 'Priority: high' : 'Set high priority',
               onClick: () => update(task.id, { priority: 'high' }),

@@ -45,6 +45,7 @@ export interface ElectronAPI {
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
   openExternal: (url: string) => Promise<void>
+  fetchText: (url: string) => Promise<string>
   notify: (payload: { title: string; body: string; start?: string; time?: string }) => Promise<void>
   dismissReminder: () => void
   openReminder: (date?: string) => void
@@ -64,7 +65,26 @@ export interface ElectronAPI {
   icloudStatus: () => Promise<AccountStatus>
   onNavigate: (cb: (iso: string) => void) => () => void
   onMaximized: (cb: (maximized: boolean) => void) => () => void
+  focusModeGet: () => Promise<FocusModeStatus>
+  focusModeEnable: (options?: { minutes?: number; endsAt?: string }) => Promise<FocusModeStatus>
+  focusModeDisable: () => Promise<FocusModeStatus>
+  focusModeForceDisable: () => Promise<FocusModeStatus>
+  onFocusModeUpdated?: (cb: (status: FocusModeStatus) => void) => () => void
+  loginItemGet: () => Promise<{ openAtLogin: boolean; openAsHidden?: boolean }>
+  loginItemSet: (openAtLogin: boolean) => Promise<{ openAtLogin: boolean; openAsHidden?: boolean }>
   platform: string
+}
+
+export interface FocusModeStatus {
+  enabled: boolean
+  hostsActive: boolean
+  processGuard: boolean
+  needsElevation: boolean
+  message: string
+  blockedDomains: string[]
+  blockedApps: string[]
+  endsAt: string | null
+  remainingMs: number
 }
 
 interface ImportMetaEnv {

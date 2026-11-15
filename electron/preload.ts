@@ -10,6 +10,7 @@ const api = {
   storeGet: (key: string) => ipcRenderer.invoke('store:get', key),
   storeSet: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
   openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+  fetchText: (url: string) => ipcRenderer.invoke('net:fetchText', url) as Promise<string>,
   notify: (payload: { title: string; body: string; start?: string; time?: string }) => ipcRenderer.invoke('notify', payload),
   dismissReminder: () => ipcRenderer.send('reminder:dismiss'),
   openReminder: (date?: string) => ipcRenderer.send('reminder:open', date),
@@ -46,6 +47,18 @@ const api = {
     ipcRenderer.on('window:maximized', listener)
     return () => ipcRenderer.removeListener('window:maximized', listener)
   },
+  focusModeGet: () => ipcRenderer.invoke('focusMode:get'),
+  focusModeEnable: (options?: { minutes?: number; endsAt?: string }) =>
+    ipcRenderer.invoke('focusMode:enable', options),
+  focusModeDisable: () => ipcRenderer.invoke('focusMode:disable'),
+  focusModeForceDisable: () => ipcRenderer.invoke('focusMode:forceDisable'),
+  onFocusModeUpdated: (callback: (status: unknown) => void) => {
+    const listener = (_event: unknown, status: unknown) => callback(status)
+    ipcRenderer.on('focusMode:updated', listener)
+    return () => ipcRenderer.removeListener('focusMode:updated', listener)
+  },
+  loginItemGet: () => ipcRenderer.invoke('loginItem:get'),
+  loginItemSet: (openAtLogin: boolean) => ipcRenderer.invoke('loginItem:set', openAtLogin),
   platform: process.platform,
 }
 
