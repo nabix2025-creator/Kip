@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen, shell } from 'electron'
+import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen, shell, type WebContents } from 'electron'
 import { existsSync } from 'node:fs'
 import { join, resolve as resolvePath } from 'node:path'
 import { connectIcloud, disconnectIcloud, icloudStatus, syncIcloud } from './caldav'
@@ -58,7 +58,31 @@ function appIconImage() {
   return path ? nativeImage.createFromPath(path) : null
 }
 
+/** Disable Chromium page zoom (Ctrl+/Ctrl-/Ctrl+wheel) — Kip UI must stay 100%. */
+function lockPageZoom(contents: WebContents): void {
+  const freeze = () => {
+    try {
+      contents.setZoomFactor(1)
+      contents.setVisualZoomLevelLimits(1, 1)
+    } catch {
+      /* ignore */
+    }
+  }
+  freeze()
+  contents.on('did-finish-load', freeze)
+  contents.on('before-input-event', (event, input) => {
+    if (!(input.control || input.meta)) return
+    const key = input.key.toLowerCase()
+    // Block zoom in/out/reset: -, _, =, +, 0, numpad ±
+    if (key === '-' || key === '_' || key === '=' || key === '+' || key === '0' || key === 'numadd' || key === 'numsub') {
+      event.preventDefault()
+      freeze()
+    }
+  })
+}
+
 function load(window: BrowserWindow, query = ''): void {
+  lockPageZoom(window.webContents)
   const devUrl = process.env.ELECTRON_RENDERER_URL
   if (devUrl) {
     void window.loadURL(query ? `${devUrl}?${query}` : devUrl)
@@ -355,6 +379,10 @@ function registerProtocol(): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
+  app.on('web-contents-created', (_event, contents) => {
+    lockPageZoom(contents)
+  })
+
   app.on('second-instance', (_event, argv) => {
     const url = argv.find((item) => item.startsWith('kip://'))
     if (url) sendAuthCallback(url)
