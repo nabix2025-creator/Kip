@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { mergeRemoteCalendars } from '@/lib/googleCalendar'
 import { formatFocusEndsAt, formatFocusRemaining } from '@/lib/focusDuration'
 import { FocusDurationDialog, type FocusDurationChoice } from '@/components/ui/FocusDurationDialog'
+import { FocusTargetPicker, defaultFocusTargets } from '@/components/ui/FocusTargetPicker'
+import type { FocusTargetId } from '@/vite-env'
 import { Modal } from '@/components/ui/Modal'
 import { Segmented } from '@/components/ui/Segmented'
 import { Select } from '@/components/ui/Select'
@@ -98,18 +100,35 @@ function FocusSection() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [draftTargets, setDraftTargets] = useState<FocusTargetId[]>(defaultFocusTargets)
   const desktop = Boolean(window.api?.focusModeGet)
 
   useEffect(() => {
     if (!status) return
     setPreferred(status.enabled)
     if (status.message) setMessage(status.message)
+    if (status.targets?.length) setDraftTargets(status.targets)
   }, [status, setPreferred])
 
   const applyStatus = (next: Awaited<ReturnType<NonNullable<typeof window.api>['focusModeGet']>>) => {
     setStatus(next)
     setPreferred(next.enabled)
     setMessage(next.message)
+    if (next.targets?.length) setDraftTargets(next.targets)
+  }
+
+  const updateTargets = async (nextTargets: FocusTargetId[]) => {
+    setDraftTargets(nextTargets)
+    if (!window.api?.focusModeSetTargets) return
+    setBusy(true)
+    try {
+      const next = await window.api.focusModeSetTargets(nextTargets)
+      applyStatus(next)
+    } catch {
+      setMessage('Could not update blocked apps.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const startWithDuration = async (choice: FocusDurationChoice) => {
@@ -200,29 +219,42 @@ function FocusSection() {
           </button>
         </div>
       )}
+      <div className="space-y-2 rounded-[12px] border border-divider bg-primary p-4 shadow-card">
+        <p className="text-[13px] font-semibold text-primary">Block these</p>
+        <p className="text-[12px] leading-relaxed text-secondary">
+          Highlighted apps/sites stay blocked. Tap to deselect — e.g. turn off Discord if you still want to use it during Focus.
+        </p>
+        <FocusTargetPicker
+          selected={draftTargets}
+          onChange={(next) => void updateTargets(next)}
+          available={status?.availableTargets}
+          disabled={busy || !desktop}
+        />
+      </div>
       {busy && <p className="text-body text-secondary">Applying… approve the Windows admin prompt if shown.</p>}
       {message && <p className="text-body text-secondary">{message}</p>}
       <div className="space-y-2 rounded-[12px] bg-primary p-4 text-[13px] leading-relaxed text-secondary shadow-card">
         <p>
-          When you turn Focus Mode on, pick a duration (25m, 45m, 1h, 2h, or custom). Kip redirects YouTube, Instagram, TikTok,
-          Netflix, and Discord (web) via the hosts file, and closes Instagram / Discord desktop apps if they reopen.
+          When you turn Focus Mode on, pick a duration and which distractions to block. Deselected apps (like Discord) stay
+          usable. Kip redirects selected sites via the hosts file and closes matching desktop apps.
         </p>
         <p>
           While the timer is running, Focus Mode stays locked — flipping Off shows a reminder and keeps blocking. Use{' '}
           <span className="font-semibold text-primary">Force off Focus Mode</span> above to unlock early. When the session
-          ends, blocking turns off automatically. Tampering with the hosts block restores it and shows the same reminder. Site
-          blocking needs admin once (UAC).
-        </p>
-        <p>
-          Limits: VPN / alternate DNS / mobile apps / browser extensions that bypass hosts are out of scope. Process names must match
-          (Instagram.exe, Discord.exe).
+          ends, blocking turns off automatically. Site blocking needs admin once (UAC).
         </p>
         {!desktop && <p className="text-accent-orange">Open the desktop Kip app to enable system blocking.</p>}
         {status?.needsElevation && (
           <p className="text-accent-orange">Hosts not updated yet — turn Focus Mode on again and approve admin to block websites.</p>
         )}
       </div>
-      <FocusDurationDialog open={pickerOpen} onClose={() => setPickerOpen(false)} onConfirm={(choice) => void startWithDuration(choice)} />
+      <FocusDurationDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={(choice) => void startWithDuration(choice)}
+        initialTargets={draftTargets}
+        availableTargets={status?.availableTargets}
+      />
     </div>
   )
 }

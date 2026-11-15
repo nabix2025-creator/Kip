@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EASE } from '@/lib/constants'
 import { endsAtFromLocalTime } from '@/lib/focusDuration'
 import { cn } from '@/lib/cn'
 import { TimeField } from '@/components/ui/TimeField'
+import { defaultFocusTargets, FocusTargetPicker } from '@/components/ui/FocusTargetPicker'
+import type { FocusTargetId } from '@/vite-env'
 
 const PRESETS = [
   { id: '25', label: '25m', minutes: 25 },
@@ -16,28 +18,41 @@ const PRESETS = [
 type PresetId = (typeof PRESETS)[number]['id']
 
 export type FocusDurationChoice =
-  | { minutes: number }
-  | { endsAt: string }
+  | { minutes: number; targets: FocusTargetId[] }
+  | { endsAt: string; targets: FocusTargetId[] }
 
 interface Props {
   open: boolean
   onClose: () => void
   onConfirm: (choice: FocusDurationChoice) => void
+  initialTargets?: FocusTargetId[]
+  availableTargets?: { id: FocusTargetId; label: string }[]
 }
 
-export function FocusDurationDialog({ open, onClose, onConfirm }: Props) {
+export function FocusDurationDialog({ open, onClose, onConfirm, initialTargets, availableTargets }: Props) {
   const [preset, setPreset] = useState<PresetId>('25')
   const [customMinutes, setCustomMinutes] = useState('30')
   const [customMode, setCustomMode] = useState<'minutes' | 'until'>('minutes')
   const [untilTime, setUntilTime] = useState(() => defaultUntilTime())
+  const [targets, setTargets] = useState<FocusTargetId[]>(() => initialTargets ?? defaultFocusTargets())
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setTargets(initialTargets?.length ? initialTargets : defaultFocusTargets())
+    setError('')
+  }, [open, initialTargets])
 
   const start = () => {
     setError('')
+    if (targets.length === 0) {
+      setError('Select at least one app/site to block.')
+      return
+    }
     if (preset !== 'custom') {
       const found = PRESETS.find((item) => item.id === preset)
       if (found?.minutes) {
-        onConfirm({ minutes: found.minutes })
+        onConfirm({ minutes: found.minutes, targets })
         onClose()
       }
       return
@@ -48,7 +63,7 @@ export function FocusDurationDialog({ open, onClose, onConfirm }: Props) {
         setError('Enter minutes between 1 and 1440.')
         return
       }
-      onConfirm({ minutes: Math.round(minutes) })
+      onConfirm({ minutes: Math.round(minutes), targets })
       onClose()
       return
     }
@@ -57,7 +72,7 @@ export function FocusDurationDialog({ open, onClose, onConfirm }: Props) {
       setError('Pick a valid end time.')
       return
     }
-    onConfirm({ endsAt })
+    onConfirm({ endsAt, targets })
     onClose()
   }
 
@@ -80,7 +95,7 @@ export function FocusDurationDialog({ open, onClose, onConfirm }: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="focus-duration-title"
-            className="glass relative z-10 w-full max-w-[360px] overflow-hidden rounded-[16px] p-5 shadow-sheet"
+            className="glass relative z-10 w-full max-w-[380px] overflow-hidden rounded-[16px] p-5 shadow-sheet"
             initial={{ opacity: 0, scale: 0.94, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 6 }}
@@ -90,8 +105,20 @@ export function FocusDurationDialog({ open, onClose, onConfirm }: Props) {
               Focus session
             </h2>
             <p className="mt-1.5 text-[13px] leading-relaxed text-secondary">
-              Pick how long Focus Mode stays locked. You can’t turn it off early.
+              Pick duration, then deselect anything you still want to use (e.g. Discord).
             </p>
+
+            <div className="mt-4">
+              <div className="mb-1.5 text-[12px] font-medium text-secondary">Block these</div>
+              <FocusTargetPicker
+                selected={targets}
+                onChange={setTargets}
+                available={availableTargets}
+              />
+              <p className="mt-1.5 text-[11px] leading-relaxed text-tertiary">
+                Highlighted = blocked. Tap again to allow during this session.
+              </p>
+            </div>
 
             <div className="mt-4 flex flex-wrap gap-1.5">
               {PRESETS.map((item) => (

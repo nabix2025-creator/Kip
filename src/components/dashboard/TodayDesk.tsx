@@ -362,6 +362,8 @@ export function TodayDesk({ now, onOpen }: { now: Date; onOpen: (id: DeskId) => 
         open={focusPickerOpen}
         onClose={() => setFocusPickerOpen(false)}
         onConfirm={(choice) => void startFocusWithDuration(choice)}
+        initialTargets={focusStatus?.targets}
+        availableTargets={focusStatus?.availableTargets}
       />
     </div>
   )

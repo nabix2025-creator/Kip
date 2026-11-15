@@ -30,6 +30,7 @@ export function useTray(): void {
           title: event.title,
           time: event.allDay ? 'All day' : formatTime(parseISO(event.start), timeFormat),
           color: colors.get(event.calendarId) ?? '#0A84FF',
+          start: event.start,
         })),
       })
     }

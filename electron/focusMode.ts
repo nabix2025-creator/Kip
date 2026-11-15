@@ -13,41 +13,55 @@ const HOSTS_MARKER_BEGIN = '# >>> KIP-FOCUS-BEGIN'
 const HOSTS_MARKER_END = '# <<< KIP-FOCUS-END'
 const STORE_KEY = 'focusMode.enabled'
 const STORE_ENDS_AT = 'focusMode.endsAt'
+const STORE_TARGETS = 'focusMode.targets'
 
 /** Exact user-requested copy — do not paraphrase. */
 export const FOCUS_DISCIPLINE_MESSAGE = "DON'T TURN OFF FOCUS MODE IF YOU ARE NOT GAY."
 
-const BLOCKED_DOMAINS = [
-  'youtube.com',
-  'www.youtube.com',
-  'm.youtube.com',
-  'youtu.be',
-  'instagram.com',
-  'www.instagram.com',
-  'm.instagram.com',
-  'tiktok.com',
-  'www.tiktok.com',
-  'm.tiktok.com',
-  'vm.tiktok.com',
-  'netflix.com',
-  'www.netflix.com',
-  'm.netflix.com',
-  'discord.com',
-  'www.discord.com',
-  'discordapp.com',
-  'www.discordapp.com',
-  'discord.gg',
-  'www.discord.gg',
+export type FocusTargetId = 'youtube' | 'instagram' | 'tiktok' | 'netflix' | 'discord'
+
+type FocusTargetDef = {
+  id: FocusTargetId
+  label: string
+  domains: string[]
+  processes: string[]
+}
+
+/** Selectable distractions — deselect to allow during Focus Mode. */
+export const FOCUS_TARGETS: FocusTargetDef[] = [
+  {
+    id: 'youtube',
+    label: 'YouTube',
+    domains: ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be'],
+    processes: [],
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    domains: ['instagram.com', 'www.instagram.com', 'm.instagram.com'],
+    processes: ['Instagram.exe'],
+  },
+  {
+    id: 'tiktok',
+    label: 'TikTok',
+    domains: ['tiktok.com', 'www.tiktok.com', 'm.tiktok.com', 'vm.tiktok.com'],
+    processes: [],
+  },
+  {
+    id: 'netflix',
+    label: 'Netflix',
+    domains: ['netflix.com', 'www.netflix.com', 'm.netflix.com'],
+    processes: [],
+  },
+  {
+    id: 'discord',
+    label: 'Discord',
+    domains: ['discord.com', 'www.discord.com', 'discordapp.com', 'www.discordapp.com', 'discord.gg', 'www.discord.gg'],
+    processes: ['Discord.exe', 'DiscordPTB.exe', 'DiscordCanary.exe', 'DiscordDevelopment.exe'],
+  },
 ]
 
-/** Desktop apps closed while Focus Mode is on (Windows process names). */
-const BLOCKED_PROCESSES = [
-  'Instagram.exe',
-  'Discord.exe',
-  'DiscordPTB.exe',
-  'DiscordCanary.exe',
-  'DiscordDevelopment.exe',
-]
+const ALL_TARGET_IDS: FocusTargetId[] = FOCUS_TARGETS.map((item) => item.id)
 
 const PROCESS_POLL_MS = 1500
 const INTEGRITY_POLL_MS = 4000
@@ -58,6 +72,8 @@ export type FocusModeEnableOptions = {
   minutes?: number
   /** Absolute end time (ISO). Used when set; otherwise derived from minutes. */
   endsAt?: string
+  /** Which distractions to block; defaults to saved preference / all. */
+  targets?: FocusTargetId[]
 }
 
 export type FocusModeStatus = {
@@ -68,6 +84,10 @@ export type FocusModeStatus = {
   message: string
   blockedDomains: string[]
   blockedApps: string[]
+  /** Currently blocked target ids (checked = blocked). */
+  targets: FocusTargetId[]
+  /** All selectable targets for the UI. */
+  availableTargets: { id: FocusTargetId; label: string }[]
   /** ISO end time while a timed session is active; null when off. */
   endsAt: string | null
   /** Milliseconds remaining; 0 when expired/off. */
@@ -108,8 +128,50 @@ function stripKipBlock(content: string): string {
   return (before + after).replace(/\r?\n+$/, '') + '\n'
 }
 
+function isFocusTargetId(value: unknown): value is FocusTargetId {
+  return typeof value === 'string' && (ALL_TARGET_IDS as string[]).includes(value)
+}
+
+function parseTargets(raw: unknown): FocusTargetId[] | null {
+  if (!Array.isArray(raw)) return null
+  return Array.from(new Set(raw.filter(isFocusTargetId)))
+}
+
+function readTargets(): FocusTargetId[] {
+  return parseTargets(storeGet(STORE_TARGETS)) ?? [...ALL_TARGET_IDS]
+}
+
+function writeTargets(targets: FocusTargetId[]): FocusTargetId[] {
+  const next = Array.from(new Set(targets.filter(isFocusTargetId)))
+  storeSet(STORE_TARGETS, next)
+  return next
+}
+
+function activeTargetDefs(): FocusTargetDef[] {
+  const selected = new Set(readTargets())
+  return FOCUS_TARGETS.filter((item) => selected.has(item.id))
+}
+
+function activeDomains(): string[] {
+  return activeTargetDefs().flatMap((item) => item.domains)
+}
+
+function activeProcesses(): string[] {
+  return activeTargetDefs().flatMap((item) => item.processes)
+}
+
+function activeAppLabels(): string[] {
+  return activeTargetDefs()
+    .filter((item) => item.processes.length > 0)
+    .map((item) => item.label)
+}
+
 function buildHostsBlock(): string {
-  const lines = BLOCKED_DOMAINS.flatMap((domain) => [`127.0.0.1 ${domain}`, `::1 ${domain}`])
+  const domains = activeDomains()
+  if (domains.length === 0) {
+    return `${HOSTS_MARKER_BEGIN}\n${HOSTS_MARKER_END}\n`
+  }
+  const lines = domains.flatMap((domain) => [`127.0.0.1 ${domain}`, `::1 ${domain}`])
   return `${HOSTS_MARKER_BEGIN}\n${lines.join('\n')}\n${HOSTS_MARKER_END}\n`
 }
 
@@ -121,7 +183,7 @@ function extractKipBlock(content: string): string | null {
   return content.slice(begin, end + HOSTS_MARKER_END.length)
 }
 
-/** True when markers exist and every blocked domain is listed inside the Kip block. */
+/** True when markers exist and every currently selected domain is listed inside the Kip block. */
 function hostsIntact(): boolean {
   try {
     const content = readFileSync(hostsPath(), 'utf8')
@@ -130,9 +192,17 @@ function hostsIntact(): boolean {
       hostsApplied = false
       return false
     }
-    const ok = BLOCKED_DOMAINS.every((domain) => block.includes(domain))
-    hostsApplied = ok
-    return ok
+    const domains = activeDomains()
+    // Empty selection: markers alone are enough (nothing to redirect).
+    const ok = domains.length === 0 || domains.every((domain) => block.includes(domain))
+    // Also ensure deselected domains are not still redirected.
+    const selected = new Set(domains)
+    const leaked = FOCUS_TARGETS.flatMap((item) => item.domains).some(
+      (domain) => !selected.has(domain) && block.includes(` ${domain}`),
+    )
+    const intact = ok && !leaked
+    hostsApplied = intact
+    return intact
   } catch {
     return false
   }
@@ -248,7 +318,7 @@ async function restoreHosts(): Promise<{ ok: boolean; message: string }> {
 
 function closeBlockedProcesses(): void {
   if (process.platform !== 'win32') return
-  for (const name of BLOCKED_PROCESSES) {
+  for (const name of activeProcesses()) {
     void execFileAsync('taskkill', ['/F', '/IM', name, '/T'], { windowsHide: true }).catch(() => undefined)
   }
 }
@@ -425,17 +495,53 @@ export function getFocusModeStatus(): FocusModeStatus {
   const enabled = readEnabled()
   const endsAt = readEndsAt()
   const remainingMs = enabled && endsAt ? Math.max(0, endsAt.getTime() - Date.now()) : 0
+  const targets = readTargets()
   return {
     enabled,
     hostsActive,
     processGuard: Boolean(processTimer),
-    needsElevation: enabled && !hostsActive,
+    needsElevation: enabled && !hostsActive && activeDomains().length > 0,
     message: lastMessage,
-    blockedDomains: [...BLOCKED_DOMAINS],
-    blockedApps: ['Instagram', 'Discord'],
+    blockedDomains: activeDomains(),
+    blockedApps: activeAppLabels(),
+    targets,
+    availableTargets: FOCUS_TARGETS.map((item) => ({ id: item.id, label: item.label })),
     endsAt: enabled && endsAt ? endsAt.toISOString() : null,
     remainingMs,
   }
+}
+
+/**
+ * Update which distractions are blocked. Works while idle or mid-session
+ * (re-applies hosts / process list). At least one target is required.
+ */
+export async function setFocusModeTargets(targets: FocusTargetId[]): Promise<FocusModeStatus> {
+  const parsed = parseTargets(targets) ?? []
+  if (parsed.length === 0) {
+    lastMessage = 'Keep at least one distraction selected to block.'
+    broadcastFocusStatus()
+    return getFocusModeStatus()
+  }
+  const next = writeTargets(parsed)
+  const allowed = FOCUS_TARGETS.filter((item) => !next.includes(item.id)).map((item) => item.label)
+  if (!readEnabled()) {
+    lastMessage =
+      allowed.length > 0
+        ? `Will block selected apps. Allowed: ${allowed.join(', ')}.`
+        : `Will block: ${FOCUS_TARGETS.map((item) => item.label).join(', ')}.`
+    broadcastFocusStatus()
+    return getFocusModeStatus()
+  }
+  // Mid-session: refresh hosts + process guard for the new selection.
+  startProcessGuard()
+  const hosts = await applyHosts()
+  lastMessage = hosts.ok
+    ? allowed.length > 0
+      ? `Updated blocks — allowed: ${allowed.join(', ')}.`
+      : 'Updated blocks — all listed distractions blocked.'
+    : `Updated app blocks. ${hosts.message}`
+  broadcastFocusStatus()
+  return getFocusModeStatus()
 }
 
 export async function enableFocusMode(options?: FocusModeEnableOptions): Promise<FocusModeStatus> {
@@ -445,14 +551,24 @@ export async function enableFocusMode(options?: FocusModeEnableOptions): Promise
     return getFocusModeStatus()
   }
 
+  if (options?.targets) {
+    const parsed = parseTargets(options.targets) ?? []
+    if (parsed.length === 0) {
+      lastMessage = 'Select at least one app/site to block.'
+      return getFocusModeStatus()
+    }
+    writeTargets(parsed)
+  }
+
   writeEnabled(true)
   writeEndsAt(endsAt.toISOString())
   scheduleExpiry(endsAt)
   startProcessGuard()
   const hosts = await applyHosts()
   const until = formatEndLabel(endsAt)
+  const labels = FOCUS_TARGETS.filter((item) => readTargets().includes(item.id)).map((item) => item.label)
   lastMessage = hosts.ok
-    ? `Focus Mode on until ${until} — sites and apps blocked.`
+    ? `Focus Mode on until ${until} — blocking ${labels.join(', ')}.`
     : `Focus Mode on until ${until} (apps only). ${hosts.message}`
   broadcastFocusStatus()
   return getFocusModeStatus()

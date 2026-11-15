@@ -25,8 +25,31 @@ const api = {
     ipcRenderer.on('auth:callback', listener)
     return () => ipcRenderer.removeListener('auth:callback', listener)
   },
-  setTray: (payload: { icon: string; events: { id: string; title: string; time: string; color: string }[] }) =>
-    ipcRenderer.invoke('tray:update', payload),
+  setTray: (payload: {
+    icon: string
+    events: { id: string; title: string; time: string; color: string; start?: string }[]
+  }) => ipcRenderer.invoke('tray:update', payload),
+  getTrayEvents: () =>
+    ipcRenderer.invoke('tray:getEvents') as Promise<{
+      dateLabel: string
+      events: { id: string; title: string; time: string; color: string; start?: string }[]
+    }>,
+  onTrayEvents: (
+    callback: (payload: {
+      dateLabel: string
+      events: { id: string; title: string; time: string; color: string; start?: string }[]
+    }) => void,
+  ) => {
+    const listener = (
+      _event: unknown,
+      payload: {
+        dateLabel: string
+        events: { id: string; title: string; time: string; color: string; start?: string }[]
+      },
+    ) => callback(payload)
+    ipcRenderer.on('tray:events', listener)
+    return () => ipcRenderer.removeListener('tray:events', listener)
+  },
   openMain: (date?: string) => ipcRenderer.send('tray:open', date),
   googleConnect: (creds: { clientId: string; clientSecret: string }) => ipcRenderer.invoke('google:connect', creds),
   googleSync: () => ipcRenderer.invoke('google:sync'),
@@ -48,10 +71,11 @@ const api = {
     return () => ipcRenderer.removeListener('window:maximized', listener)
   },
   focusModeGet: () => ipcRenderer.invoke('focusMode:get'),
-  focusModeEnable: (options?: { minutes?: number; endsAt?: string }) =>
+  focusModeEnable: (options?: { minutes?: number; endsAt?: string; targets?: string[] }) =>
     ipcRenderer.invoke('focusMode:enable', options),
   focusModeDisable: () => ipcRenderer.invoke('focusMode:disable'),
   focusModeForceDisable: () => ipcRenderer.invoke('focusMode:forceDisable'),
+  focusModeSetTargets: (targets: string[]) => ipcRenderer.invoke('focusMode:setTargets', targets),
   onFocusModeUpdated: (callback: (status: unknown) => void) => {
     const listener = (_event: unknown, status: unknown) => callback(status)
     ipcRenderer.on('focusMode:updated', listener)

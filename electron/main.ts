@@ -8,8 +8,10 @@ import {
   forceDisableFocusMode,
   getFocusModeStatus,
   resumeFocusModeIfNeeded,
+  setFocusModeTargets,
   setFocusNagParent,
   teardownFocusModeOnQuit,
+  type FocusTargetId,
 } from './focusMode'
 import { connectGoogle, disconnectGoogle, googleStatus, pushGoogle, syncGoogle } from './google'
 import { storeGet, storeSet } from './store'
@@ -29,7 +31,7 @@ let alertWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
 let focusTeardownDone = false
-let trayEvents: { title: string; time: string }[] = []
+let trayEvents: { id: string; title: string; time: string; color: string; start?: string }[] = []
 const reminderQueue: ReminderPayload[] = []
 let alertVisible = false
 let currentAlert: ReminderPayload | null = null
@@ -110,6 +112,51 @@ function showMain(date?: string): void {
   if (date) mainWindow?.webContents.send('navigate', date)
 }
 
+function pushTrayEventsToPopup(): void {
+  if (!popup || popup.isDestroyed()) return
+  const payload = {
+    dateLabel: new Date().toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }),
+    events: trayEvents,
+  }
+  const send = () => {
+    if (!popup || popup.isDestroyed()) return
+    popup.webContents.send('tray:events', payload)
+  }
+  if (popup.webContents.isLoading()) {
+    popup.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+function positionTrayPopup(window: BrowserWindow): void {
+  const bounds = tray?.getBounds()
+  const display = bounds
+    ? screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y })
+    : screen.getPrimaryDisplay()
+  const work = display.workArea
+  const width = 360
+  const height = 480
+  let x = work.x + Math.round((work.width - width) / 2)
+  let y = work.y + Math.round((work.height - height) / 2)
+  if (bounds && bounds.width > 0) {
+    x = Math.round(bounds.x + bounds.width / 2 - width / 2)
+    // Taskbar usually at bottom — place popup above tray icon.
+    y = Math.round(bounds.y - height - 8)
+    if (y < work.y + 8) {
+      // Taskbar on top (or icon near top): place below.
+      y = Math.round(bounds.y + bounds.height + 8)
+    }
+  }
+  x = Math.min(Math.max(work.x + 8, x), work.x + work.width - width - 8)
+  y = Math.min(Math.max(work.y + 8, y), work.y + work.height - height - 8)
+  window.setPosition(x, y)
+}
+
 function showPopup(): void {
   if (!popup || popup.isDestroyed()) {
     const icon = resolveAppIcon()
@@ -140,12 +187,12 @@ function showPopup(): void {
     popup.hide()
     return
   }
-  const bounds = tray?.getBounds()
-  if (bounds) {
-    popup.setPosition(Math.round(bounds.x + bounds.width / 2 - 180), Math.max(8, Math.round(bounds.y - 488)))
-  }
+  positionTrayPopup(popup)
+  pushTrayEventsToPopup()
   popup.show()
   popup.focus()
+  // Re-push after a tick in case the tray renderer rehydrated late.
+  setTimeout(() => pushTrayEventsToPopup(), 120)
 }
 
 const ALERT_WIDTH = 400
@@ -251,27 +298,35 @@ function openReminder(date?: string): void {
   showMain(date)
 }
 
-function refreshTrayMenu(): void {
-  tray?.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Open Kip', click: () => showMain() },
-      { type: 'separator' },
-      ...(trayEvents.length
-        ? trayEvents.slice(0, 6).map((event) => ({
-            label: `${event.time}   ${event.title}`.slice(0, 80),
-            click: () => showMain(new Date().toISOString()),
-          }))
-        : [{ label: 'No events today', enabled: false }]),
-      { type: 'separator' },
-      {
-        label: 'Quit Kip',
-        click: () => {
-          quitting = true
-          app.quit()
-        },
+function buildTrayContextMenu(): Menu {
+  return Menu.buildFromTemplate([
+    { label: 'Today\'s events', click: () => showPopup() },
+    { label: 'Open Kip', click: () => showMain() },
+    { type: 'separator' },
+    ...(trayEvents.length
+      ? trayEvents.slice(0, 6).map((event) => ({
+          label: `${event.time}   ${event.title}`.slice(0, 80),
+          click: () => showMain(new Date().toISOString()),
+        }))
+      : [{ label: 'No events today', enabled: false as const }]),
+    { type: 'separator' },
+    {
+      label: 'Quit Kip',
+      click: () => {
+        quitting = true
+        app.quit()
       },
-    ]),
-  )
+    },
+  ])
+}
+
+function refreshTrayMenu(): void {
+  // On Windows, setContextMenu steals left-click. Keep menu for right-click only.
+  if (process.platform === 'win32') {
+    tray?.setContextMenu(null)
+    return
+  }
+  tray?.setContextMenu(buildTrayContextMenu())
 }
 
 function blankIcon() {
@@ -319,8 +374,12 @@ if (!app.requestSingleInstanceLock()) {
     tray = new Tray(blankIcon())
     tray.setToolTip('Kip')
     refreshTrayMenu()
+    // Left / single click → today's events popup (must not use setContextMenu on Windows).
     tray.on('click', () => showPopup())
-    tray.on('right-click', () => tray?.popUpContextMenu())
+    tray.on('double-click', () => showMain())
+    tray.on('right-click', () => {
+      tray?.popUpContextMenu(buildTrayContextMenu())
+    })
 
     void resumeFocusModeIfNeeded()
 
@@ -379,15 +438,31 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.on('reminder:ready', (event) => {
       if (currentAlert) event.sender.send('reminder:show', currentAlert)
     })
-    ipcMain.handle('tray:update', (_event, payload: { icon?: string; events?: { title: string; time: string }[] }) => {
-      if (payload.icon) {
-        const image = nativeImage.createFromDataURL(payload.icon)
-        tray?.setImage(image.resize({ width: 16, height: 16 }))
-      }
-      trayEvents = payload.events ?? []
-      tray?.setToolTip(`Kip · ${new Date().getDate()}`)
-      refreshTrayMenu()
-    })
+    ipcMain.handle(
+      'tray:update',
+      (
+        _event,
+        payload: { icon?: string; events?: { id: string; title: string; time: string; color: string; start?: string }[] },
+      ) => {
+        if (payload.icon) {
+          const image = nativeImage.createFromDataURL(payload.icon)
+          tray?.setImage(image.resize({ width: 16, height: 16 }))
+        }
+        trayEvents = payload.events ?? []
+        const count = trayEvents.length
+        tray?.setToolTip(count ? `Kip · ${count} today` : `Kip · ${new Date().getDate()}`)
+        refreshTrayMenu()
+        if (popup && !popup.isDestroyed() && popup.isVisible()) pushTrayEventsToPopup()
+      },
+    )
+    ipcMain.handle('tray:getEvents', () => ({
+      dateLabel: new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      }),
+      events: trayEvents,
+    }))
     ipcMain.on('tray:open', (_event, date?: string) => {
       popup?.hide()
       showMain(date)
@@ -405,10 +480,12 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('focusMode:get', () => getFocusModeStatus())
     ipcMain.handle(
       'focusMode:enable',
-      (_event, options?: { minutes?: number; endsAt?: string }) => enableFocusMode(options),
+      (_event, options?: { minutes?: number; endsAt?: string; targets?: FocusTargetId[] }) =>
+        enableFocusMode(options),
     )
     ipcMain.handle('focusMode:disable', () => disableFocusMode())
     ipcMain.handle('focusMode:forceDisable', () => forceDisableFocusMode())
+    ipcMain.handle('focusMode:setTargets', (_event, targets: FocusTargetId[]) => setFocusModeTargets(targets))
 
     ipcMain.handle('loginItem:get', () => {
       if (app.isPackaged) {

@@ -5,6 +5,7 @@ export interface TrayEvent {
   title: string
   time: string
   color: string
+  start?: string
 }
 
 export interface GoogleCalendarDTO {
@@ -53,6 +54,8 @@ export interface ElectronAPI {
   onReminderAlert: (cb: (payload: { title: string; body: string; start?: string; time?: string }) => void) => () => void
   onAuthCallback: (cb: (url: string) => void) => () => void
   setTray: (payload: { icon: string; events: TrayEvent[] }) => Promise<void>
+  getTrayEvents?: () => Promise<{ dateLabel: string; events: TrayEvent[] }>
+  onTrayEvents?: (cb: (payload: { dateLabel: string; events: TrayEvent[] }) => void) => () => void
   openMain: (date?: string) => void
   googleConnect: (creds: { clientId: string; clientSecret: string }) => Promise<SyncPayload>
   googleSync: () => Promise<SyncPayload>
@@ -66,14 +69,21 @@ export interface ElectronAPI {
   onNavigate: (cb: (iso: string) => void) => () => void
   onMaximized: (cb: (maximized: boolean) => void) => () => void
   focusModeGet: () => Promise<FocusModeStatus>
-  focusModeEnable: (options?: { minutes?: number; endsAt?: string }) => Promise<FocusModeStatus>
+  focusModeEnable: (options?: {
+    minutes?: number
+    endsAt?: string
+    targets?: FocusTargetId[]
+  }) => Promise<FocusModeStatus>
   focusModeDisable: () => Promise<FocusModeStatus>
   focusModeForceDisable: () => Promise<FocusModeStatus>
+  focusModeSetTargets: (targets: FocusTargetId[]) => Promise<FocusModeStatus>
   onFocusModeUpdated?: (cb: (status: FocusModeStatus) => void) => () => void
   loginItemGet: () => Promise<{ openAtLogin: boolean; openAsHidden?: boolean }>
   loginItemSet: (openAtLogin: boolean) => Promise<{ openAtLogin: boolean; openAsHidden?: boolean }>
   platform: string
 }
+
+export type FocusTargetId = 'youtube' | 'instagram' | 'tiktok' | 'netflix' | 'discord'
 
 export interface FocusModeStatus {
   enabled: boolean
@@ -83,6 +93,8 @@ export interface FocusModeStatus {
   message: string
   blockedDomains: string[]
   blockedApps: string[]
+  targets: FocusTargetId[]
+  availableTargets: { id: FocusTargetId; label: string }[]
   endsAt: string | null
   remainingMs: number
 }
