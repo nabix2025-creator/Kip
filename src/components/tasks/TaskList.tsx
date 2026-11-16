@@ -157,7 +157,7 @@ export function TaskList() {
             className="flex flex-col items-center gap-1 rounded-[9px] bg-fill/8 px-1 py-1.5 text-secondary transition-colors hover:bg-fill/12 hover:text-primary"
           >
             <Presentation size={13} strokeWidth={2} />
-            <span className="truncate text-[9px] font-medium leading-none">Whiteboard</span>
+            <span className="truncate text-[9px] font-medium leading-none">Board</span>
           </button>
         </div>
         <button

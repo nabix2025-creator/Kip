@@ -30,6 +30,9 @@ import { useWhiteboardStore } from '@/store/whiteboardStore'
 import {
   ACCENT,
   CANVAS,
+  CANVAS_DARK,
+  DOT_DARK,
+  DOT_LIGHT,
   FILL_COLORS,
   FRAME_COLORS,
   INK_COLORS,
@@ -122,7 +125,7 @@ const HANDLES: { id: Handle; x: string; y: string; cursor: string }[] = [
 
 const SIZES = [12, 14, 16, 20, 28, 40, 64]
 
-export function Stage({ onSurfacePointer }: { onSurfacePointer?: () => void }) {
+export function Stage({ dark = false, onSurfacePointer }: { dark?: boolean; onSurfacePointer?: () => void }) {
   const boardId = useWhiteboardStore((state) => state.activeId)
   const items = useWhiteboardStore((state) => state.boards.find((board) => board.id === boardId)?.items ?? [])
   const tool = useWhiteboardStore((state) => state.tool)
@@ -695,11 +698,11 @@ export function Stage({ onSurfacePointer }: { onSurfacePointer?: () => void }) {
       <div
         ref={viewportRef}
         role="application"
-        aria-label="Whiteboard canvas"
+        aria-label="Board canvas"
         className="absolute inset-0 touch-none"
         style={{
-          backgroundColor: CANVAS,
-          backgroundImage: 'radial-gradient(circle, #C5C7CF 1.15px, transparent 1.25px)',
+          backgroundColor: dark ? CANVAS_DARK : CANVAS,
+          backgroundImage: `radial-gradient(circle, ${dark ? DOT_DARK : DOT_LIGHT} 1.15px, transparent 1.25px)`,
           backgroundSize: `${22 * cam.zoom}px ${22 * cam.zoom}px`,
           backgroundPosition: `${cam.x}px ${cam.y}px`,
           cursor,
@@ -771,8 +774,8 @@ export function Stage({ onSurfacePointer }: { onSurfacePointer?: () => void }) {
         {items.length === 0 && !gesture && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-[15px] font-medium text-[#3C3C43]">Double-click to drop a note</div>
-              <div className="mt-1 text-[13px] text-[#4A4A52]">or pick a tool on the left</div>
+              <div className={cn('text-[15px] font-medium', dark ? 'text-white/70' : 'text-[#3C3C43]')}>Double-click to drop a note</div>
+              <div className={cn('mt-1 text-[13px]', dark ? 'text-white/45' : 'text-[#4A4A52]')}>or pick a tool on the left</div>
             </div>
           </div>
         )}
@@ -793,30 +796,53 @@ export function Stage({ onSurfacePointer }: { onSurfacePointer?: () => void }) {
       )}
 
       <div data-ui className="absolute bottom-3 right-3 z-20 flex items-end gap-2">
-        {mapOpen && <MiniMap items={shown} cam={cam} view={view} onJump={(world) => {
+        {mapOpen && <MiniMap dark={dark} items={shown} cam={cam} view={view} onJump={(world) => {
           const el = viewportRef.current
           if (!el) return
           remember({ ...camRef.current, x: el.clientWidth / 2 - world.x * cam.zoom, y: el.clientHeight / 2 - world.y * cam.zoom })
         }} />}
-        <div className="flex items-center gap-0.5 rounded-[12px] bg-white p-1 shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)]">
-          <Tiny label="Zoom out" onClick={() => zoomCenter(cam.zoom / 1.2)}><ZoomOut size={15} /></Tiny>
-          <button type="button" className="w-12 rounded-[8px] text-[12px] font-medium tabular-nums text-[#1C1C1E] hover:bg-[#F2F3F5]" onClick={() => zoomCenter(1)} title="Zoom to 100%">
+        <div
+          className={cn(
+            'flex items-center gap-0.5 rounded-[12px] p-1',
+            dark
+              ? 'bg-secondary shadow-[0_1px_2px_rgba(0,0,0,.35),0_8px_24px_rgba(0,0,0,.45)]'
+              : 'bg-white shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)]',
+          )}
+        >
+          <Tiny dark={dark} label="Zoom out" onClick={() => zoomCenter(cam.zoom / 1.2)}><ZoomOut size={15} /></Tiny>
+          <button
+            type="button"
+            className={cn(
+              'w-12 rounded-[8px] text-[12px] font-medium tabular-nums hover:bg-fill/10',
+              dark ? 'text-primary' : 'text-[#1C1C1E]',
+            )}
+            onClick={() => zoomCenter(1)}
+            title="Zoom to 100%"
+          >
             {Math.round(cam.zoom * 100)}%
           </button>
-          <Tiny label="Zoom in" onClick={() => zoomCenter(cam.zoom * 1.2)}><ZoomIn size={15} /></Tiny>
-          <Tiny label="Fit everything" onClick={fit}><Maximize2 size={14} /></Tiny>
-          <Tiny label={mapOpen ? 'Hide map' : 'Show map'} pressed={mapOpen} onClick={() => setMapOpen((open) => !open)}><MapIcon size={14} /></Tiny>
-          <Tiny label={snap ? 'Snap is on' : 'Snap is off'} pressed={snap} onClick={() => useWhiteboardStore.getState().toggleSnap()}><Magnet size={14} /></Tiny>
-          <Tiny label="Undo" disabled={!canUndo} onClick={() => useWhiteboardStore.getState().undo()}><Undo2 size={14} /></Tiny>
-          <Tiny label="Redo" disabled={!canRedo} onClick={() => useWhiteboardStore.getState().redo()}><Redo2 size={14} /></Tiny>
-          <Tiny label="Shortcuts" pressed={help} onClick={() => setHelp((open) => !open)}><span className="text-[13px] font-semibold">?</span></Tiny>
+          <Tiny dark={dark} label="Zoom in" onClick={() => zoomCenter(cam.zoom * 1.2)}><ZoomIn size={15} /></Tiny>
+          <Tiny dark={dark} label="Fit everything" onClick={fit}><Maximize2 size={14} /></Tiny>
+          <Tiny dark={dark} label={mapOpen ? 'Hide map' : 'Show map'} pressed={mapOpen} onClick={() => setMapOpen((open) => !open)}><MapIcon size={14} /></Tiny>
+          <Tiny dark={dark} label={snap ? 'Snap is on' : 'Snap is off'} pressed={snap} onClick={() => useWhiteboardStore.getState().toggleSnap()}><Magnet size={14} /></Tiny>
+          <Tiny dark={dark} label="Undo" disabled={!canUndo} onClick={() => useWhiteboardStore.getState().undo()}><Undo2 size={14} /></Tiny>
+          <Tiny dark={dark} label="Redo" disabled={!canRedo} onClick={() => useWhiteboardStore.getState().redo()}><Redo2 size={14} /></Tiny>
+          <Tiny dark={dark} label="Shortcuts" pressed={help} onClick={() => setHelp((open) => !open)}><span className="text-[13px] font-semibold">?</span></Tiny>
         </div>
       </div>
 
       {help && (
-        <div data-ui className="absolute bottom-16 right-3 z-30 w-[340px] rounded-[14px] bg-white p-3 text-[12px] text-[#1C1C1E] shadow-[0_8px_30px_rgba(0,0,0,.16)]">
+        <div
+          data-ui
+          className={cn(
+            'absolute bottom-16 right-3 z-30 w-[340px] rounded-[14px] p-3 text-[12px]',
+            dark
+              ? 'bg-secondary text-primary shadow-[0_8px_30px_rgba(0,0,0,.5)]'
+              : 'bg-white text-[#1C1C1E] shadow-[0_8px_30px_rgba(0,0,0,.16)]',
+          )}
+        >
           <div className="mb-2 text-[13px] font-semibold">Shortcuts</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[#3C3C43]">
+          <div className={cn('grid grid-cols-2 gap-x-4 gap-y-1', dark ? 'text-secondary' : 'text-[#3C3C43]')}>
             <Shortcut keys="V H" label="Select, hand" />
             <Shortcut keys="N T" label="Note, text" />
             <Shortcut keys="S L" label="Shape, line" />
@@ -1180,7 +1206,19 @@ function Swatches({ colors, value, onChange }: { colors: string[]; value: string
   )
 }
 
-function MiniMap({ items, cam, view, onJump }: { items: BoardItem[]; cam: Camera; view: { w: number; h: number }; onJump: (world: Point) => void }) {
+function MiniMap({
+  dark,
+  items,
+  cam,
+  view,
+  onJump,
+}: {
+  dark: boolean
+  items: BoardItem[]
+  cam: Camera
+  view: { w: number; h: number }
+  onJump: (world: Point) => void
+}) {
   const bounds = unionBounds(items) ?? { x: -500, y: -360, w: 1000, h: 720 }
   const pad = 140
   const world = { x: bounds.x - pad, y: bounds.y - pad, w: bounds.w + pad * 2, h: bounds.h + pad * 2 }
@@ -1195,7 +1233,12 @@ function MiniMap({ items, cam, view, onJump }: { items: BoardItem[]; cam: Camera
     <button
       type="button"
       aria-label="Minimap"
-      className="relative overflow-hidden rounded-[12px] bg-white shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)]"
+      className={cn(
+        'relative overflow-hidden rounded-[12px]',
+        dark
+          ? 'bg-secondary shadow-[0_1px_2px_rgba(0,0,0,.35),0_8px_24px_rgba(0,0,0,.45)]'
+          : 'bg-white shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_24px_rgba(0,0,0,.12)]',
+      )}
       style={{ width, height }}
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect()
@@ -1206,7 +1249,28 @@ function MiniMap({ items, cam, view, onJump }: { items: BoardItem[]; cam: Camera
     >
       {items.map((item) => {
         const box = item.type === 'connector' ? itemAabb(item, items) : item
-        return <span key={item.id} className="absolute rounded-[1px]" style={{ left: ox + (box.x - world.x) * scale, top: oy + (box.y - world.y) * scale, width: Math.max(2, box.w * scale), height: Math.max(2, box.h * scale), background: item.type === 'sticky' && isNode(item) ? item.fill : item.type === 'pen' || item.type === 'connector' ? '#1C1C1E' : '#C5C7CF' }} />
+        return (
+          <span
+            key={item.id}
+            className="absolute rounded-[1px]"
+            style={{
+              left: ox + (box.x - world.x) * scale,
+              top: oy + (box.y - world.y) * scale,
+              width: Math.max(2, box.w * scale),
+              height: Math.max(2, box.h * scale),
+              background:
+                item.type === 'sticky' && isNode(item)
+                  ? item.fill
+                  : item.type === 'pen' || item.type === 'connector'
+                    ? dark
+                      ? '#F5F5F7'
+                      : '#1C1C1E'
+                    : dark
+                      ? '#636366'
+                      : '#C5C7CF',
+            }}
+          />
+        )
       })}
       <span
         className="absolute border border-[#4262FF] bg-[#4262FF]/10"
@@ -1216,9 +1280,35 @@ function MiniMap({ items, cam, view, onJump }: { items: BoardItem[]; cam: Camera
   )
 }
 
-function Tiny({ children, label, onClick, pressed, disabled }: { children: React.ReactNode; label: string; onClick: () => void; pressed?: boolean; disabled?: boolean }) {
+function Tiny({
+  children,
+  label,
+  onClick,
+  pressed,
+  disabled,
+  dark,
+}: {
+  children: React.ReactNode
+  label: string
+  onClick: () => void
+  pressed?: boolean
+  disabled?: boolean
+  dark?: boolean
+}) {
   return (
-    <button type="button" aria-label={label} title={label} aria-pressed={pressed} disabled={disabled} onClick={onClick} className={cn('flex h-7 w-7 items-center justify-center rounded-[8px] text-[#1C1C1E] hover:bg-[#F2F3F5] disabled:text-[#C5C7CF]', pressed && 'bg-[#E7ECFF] text-[#4262FF]')}>
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'flex h-7 w-7 items-center justify-center rounded-[8px] hover:bg-fill/10',
+        dark ? 'text-primary disabled:text-white/25' : 'text-[#1C1C1E] disabled:text-[#C5C7CF]',
+        pressed && (dark ? 'bg-accent-blue/20 text-accent-blue' : 'bg-[#E7ECFF] text-[#4262FF]'),
+      )}
+    >
       {children}
     </button>
   )
@@ -1232,7 +1322,7 @@ function Shortcut({ keys, label }: { keys: string; label: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2">
       <span>{label}</span>
-      <span className="font-medium tabular-nums text-[#1C1C1E]">{keys}</span>
+      <span className="font-medium tabular-nums text-primary">{keys}</span>
     </div>
   )
 }

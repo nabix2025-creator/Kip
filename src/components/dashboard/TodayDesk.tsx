@@ -265,7 +265,7 @@ export function TodayDesk({ now, onOpen }: { now: Date; onOpen: (id: DeskId) => 
           <PanelLabel tone="green" aside={<TextLink tone="green" onClick={() => onOpen('finance')}>Finance</TextLink>}>
             {format(now, 'MMMM')}
           </PanelLabel>
-          <div className="grid grid-cols-3 gap-2 px-3 pb-2">
+          <div className="grid grid-cols-3 gap-3 px-3 pb-2">
             <Money label="In" value={taka(income)} wash="green" />
             <Money label="Out" value={taka(expense)} wash="orange" />
             <Money label="Left" value={taka(left)} wash={left < 0 ? 'red' : 'blue'} tone={left < 0 ? 'bad' : left > 0 ? 'good' : undefined} />

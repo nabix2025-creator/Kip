@@ -83,7 +83,7 @@ export function ActivityChart({ now }: { now: Date }) {
       </PanelLabel>
       <div
         className={cn(
-          'relative mx-3 mb-1 flex items-end gap-[3px] overflow-hidden rounded-xl px-2 pb-2 pt-3',
+          'relative mx-3 mb-1 flex items-end gap-1 overflow-hidden rounded-xl px-2 pb-2 pt-3',
           quiet ? 'bg-accent-blue/10' : 'bg-accent-blue/5',
         )}
         style={{ height: 112 }}
@@ -95,11 +95,11 @@ export function ActivityChart({ now }: { now: Date }) {
               <div
                 className={cn(
                   'w-full rounded-[3px] transition-colors',
-                  item.value === 0 && (today ? 'bg-accent-red/35' : 'bg-accent-blue/15'),
+                  item.value === 0 && (today ? 'bg-accent-blue/45' : 'bg-accent-blue/15'),
                   item.value > 0 && 'bg-accent-blue/50',
                   item.ratio > 0.45 && 'bg-accent-blue/75',
                   item.ratio > 0.75 && 'bg-accent-blue',
-                  today && 'ring-2 ring-accent-red/70 ring-offset-1 ring-offset-primary',
+                  today && 'ring-2 ring-accent-blue/80 ring-offset-1 ring-offset-[rgb(var(--bg-primary))]',
                 )}
                 style={{ height: `${Math.max(item.value === 0 ? (today ? 10 : 6) : 10, Math.round(item.ratio * 84))}px` }}
                 title={`${format(item.day, 'MMM d')}: ${item.value === 0 ? 'quiet' : `${Math.round(item.value * 10) / 10} activity`}`}
@@ -110,7 +110,7 @@ export function ActivityChart({ now }: { now: Date }) {
       </div>
       <div className="flex justify-between px-3 pb-3 text-[10px] text-tertiary">
         <span>{format(monthStart, 'MMM d')}</span>
-        <span className={cn(isSameMonth(now, new Date()) && 'font-semibold text-accent-red')}>
+        <span className={cn(isSameMonth(now, new Date()) && 'font-semibold text-accent-blue')}>
           {isSameMonth(now, new Date()) ? 'Today' : format(monthEnd, 'MMM d')}
         </span>
         <span>{format(monthEnd, 'MMM d')}</span>

@@ -100,7 +100,7 @@ export function MainPanel() {
             <MenuButton label="Show agenda" onClick={choose(toggleRight)} />
             <MenuButton label="Go to today" hint="Ctrl T" onClick={choose(goToday)} />
             <MenuButton label="New event" hint="Ctrl K" onClick={choose(openNl)} />
-            <MenuButton label="Whiteboard" onClick={choose(() => useCalendarStore.getState().openWhiteboard())} />
+            <MenuButton label="Board" onClick={choose(() => useCalendarStore.getState().openWhiteboard())} />
             <MenuButton
               label="New from slot"
               onClick={choose(() => useCalendarStore.getState().openEventModal({ mode: 'create', series: false, draft: blankDraft() }))}

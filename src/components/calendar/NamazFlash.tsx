@@ -39,7 +39,7 @@ export function NamazFlash() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 4 }}
           transition={{ duration: 0.22, ease: EASE }}
-          className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-[12px] bg-[rgb(var(--bg-sidebar))] px-3 py-3 text-center"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[rgb(var(--bg-sidebar))] px-3 py-3 text-center"
         >
           <div className="mb-2.5 flex items-center justify-center gap-1.5 text-secondary">
             <Moon size={12} strokeWidth={2.2} />
@@ -50,16 +50,16 @@ export function NamazFlash() {
               <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-tertiary">
                 Next{info.nextTomorrow ? ' · tomorrow' : ''}
               </div>
-              <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em]">
-                {info.nextName}{' '}
+              <div className="mt-0.5 flex items-baseline justify-center gap-1.5 text-[15px] font-semibold tracking-[-0.02em]">
+                <span>{info.nextName}</span>
                 <span className="tabular-nums text-accent-blue">{formatMinutes(info.nextAt, timeFormat)}</span>
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-tertiary">Current ends</div>
-              <div className="mt-0.5 text-[15px] font-semibold tracking-[-0.02em]">
-                {info.currentName}{' '}
-                <span className="tabular-nums text-secondary">{formatMinutes(info.currentEnds, timeFormat)}</span>
+              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-tertiary">Current</div>
+              <div className="mt-0.5 flex items-baseline justify-center gap-1.5 text-[15px] font-semibold tracking-[-0.02em]">
+                <span>{info.currentName}</span>
+                <span className="tabular-nums text-secondary">{formatMinutes(info.currentAt, timeFormat)}</span>
               </div>
             </div>
           </div>
@@ -79,13 +79,14 @@ function namazInfo(now: Date) {
   const upcomingIndex = today.findIndex((prayer) => prayer.minutes > minute)
   const currentIndex = upcomingIndex === -1 ? today.length - 1 : upcomingIndex - 1
 
+  // Before Fajr: still in last night's Isha window.
   if (currentIndex < 0) {
     return {
       nextName: today[0].name,
       nextAt: today[0].minutes,
       nextTomorrow: false,
       currentName: 'Isha',
-      currentEnds: today[0].minutes,
+      currentAt: yesterdayIsha(now),
     }
   }
 
@@ -95,7 +96,7 @@ function namazInfo(now: Date) {
       nextAt: tomorrow[0].minutes,
       nextTomorrow: true,
       currentName: today[currentIndex].name,
-      currentEnds: tomorrow[0].minutes,
+      currentAt: today[currentIndex].minutes,
     }
   }
 
@@ -104,8 +105,15 @@ function namazInfo(now: Date) {
     nextAt: today[upcomingIndex].minutes,
     nextTomorrow: false,
     currentName: today[currentIndex].name,
-    currentEnds: today[upcomingIndex].minutes,
+    currentAt: today[currentIndex].minutes,
   }
+}
+
+function yesterdayIsha(now: Date) {
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const schedule = prayerSchedule(yesterday)
+  return schedule[schedule.length - 1].minutes
 }
 
 function formatMinutes(minutes: number, timeFormat: '12h' | '24h') {

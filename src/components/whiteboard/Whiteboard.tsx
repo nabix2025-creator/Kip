@@ -23,6 +23,7 @@ import { WindowControls } from '@/components/layout/WindowControls'
 import { Stage } from '@/components/whiteboard/Stage'
 import type { ShapeKind } from '@/components/whiteboard/model'
 import { cn } from '@/lib/cn'
+import { useTheme } from '@/hooks/useTheme'
 import { askConfirm } from '@/store/confirmStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useWhiteboardStore } from '@/store/whiteboardStore'
@@ -37,6 +38,8 @@ const SHAPES: { id: ShapeKind; label: string }[] = [
 ]
 
 export function Whiteboard() {
+  const theme = useTheme()
+  const dark = theme === 'dark'
   const close = useCalendarStore((state) => state.closeWhiteboard)
   const boards = useWhiteboardStore((state) => state.boards)
   const activeId = useWhiteboardStore((state) => state.activeId)
@@ -68,9 +71,9 @@ export function Whiteboard() {
   if (!board) return null
 
   return (
-    <div data-theme="light" className="absolute inset-0 z-50 flex flex-col bg-[#F4F5F7] text-[#1C1C1E]">
+    <div className="absolute inset-0 z-50 flex flex-col bg-grouped text-primary">
       <header
-        className="drag relative z-40 flex h-12 shrink-0 items-center gap-1 border-b border-black/10 bg-white px-2"
+        className="chrome drag relative z-40 flex h-12 shrink-0 items-center gap-1 border-b border-divider px-2"
         onDoubleClick={(event) => {
           if ((event.target as HTMLElement).closest('button, input')) return
           window.api?.maximize()
@@ -79,7 +82,7 @@ export function Whiteboard() {
         <button
           type="button"
           onClick={close}
-          className="no-drag flex h-8 items-center gap-0.5 rounded-[8px] px-2 text-[13px] font-medium text-[#3C3C43] hover:bg-[#F2F3F5] hover:text-[#1C1C1E]"
+          className="no-drag flex h-8 items-center gap-0.5 rounded-[8px] px-2 text-[13px] font-medium text-secondary hover:bg-fill/10 hover:text-primary"
         >
           <ChevronLeft size={16} />
           Calendar
@@ -96,7 +99,7 @@ export function Whiteboard() {
             type="button"
             aria-label="Boards"
             aria-expanded={boardsOpen}
-            className="flex h-7 w-7 items-center justify-center rounded-[8px] text-[#3C3C43] hover:bg-[#F2F3F5]"
+            className="flex h-7 w-7 items-center justify-center rounded-[8px] text-secondary hover:bg-fill/10"
             onClick={() => {
               setShapesOpen(false)
               setBoardsOpen((open) => !open)
@@ -111,23 +114,31 @@ export function Whiteboard() {
       </header>
 
       <div className="relative min-h-0 flex-1">
-        <Stage onSurfacePointer={() => { setBoardsOpen(false); setShapesOpen(false) }} />
+        <Stage dark={dark} onSurfacePointer={() => { setBoardsOpen(false); setShapesOpen(false) }} />
 
-        <div className="no-drag absolute left-3 top-1/2 z-20 flex max-h-[calc(100%-16px)] -translate-y-1/2 flex-col gap-0.5 overflow-y-auto rounded-[16px] bg-white p-1.5 shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_28px_rgba(0,0,0,.12)]">
-          <ToolButton label="Select" shortcut="V" active={tool === 'select'} onClick={() => useWhiteboardStore.getState().setTool('select')}>
+        <div
+          className={cn(
+            'no-drag absolute left-3 top-1/2 z-20 flex max-h-[calc(100%-16px)] -translate-y-1/2 flex-col gap-0.5 overflow-y-auto rounded-[16px] p-1.5',
+            dark
+              ? 'bg-secondary shadow-[0_1px_2px_rgba(0,0,0,.35),0_8px_28px_rgba(0,0,0,.45)]'
+              : 'bg-white shadow-[0_1px_2px_rgba(0,0,0,.06),0_8px_28px_rgba(0,0,0,.12)]',
+          )}
+        >
+          <ToolButton dark={dark} label="Select" shortcut="V" active={tool === 'select'} onClick={() => useWhiteboardStore.getState().setTool('select')}>
             <MousePointer2 size={18} />
           </ToolButton>
-          <ToolButton label="Hand" shortcut="H" active={tool === 'hand'} onClick={() => useWhiteboardStore.getState().setTool('hand')}>
+          <ToolButton dark={dark} label="Hand" shortcut="H" active={tool === 'hand'} onClick={() => useWhiteboardStore.getState().setTool('hand')}>
             <Hand size={18} />
           </ToolButton>
-          <span className="mx-auto my-1 h-px w-5 bg-black/10" />
-          <ToolButton label="Sticky note" shortcut="N" active={tool === 'sticky'} onClick={() => useWhiteboardStore.getState().setTool('sticky')}>
+          <span className={cn('mx-auto my-1 h-px w-5', dark ? 'bg-white/10' : 'bg-black/10')} />
+          <ToolButton dark={dark} label="Sticky note" shortcut="N" active={tool === 'sticky'} onClick={() => useWhiteboardStore.getState().setTool('sticky')}>
             <StickyNote size={18} />
           </ToolButton>
-          <ToolButton label="Text" shortcut="T" active={tool === 'text'} onClick={() => useWhiteboardStore.getState().setTool('text')}>
+          <ToolButton dark={dark} label="Text" shortcut="T" active={tool === 'text'} onClick={() => useWhiteboardStore.getState().setTool('text')}>
             <Type size={18} />
           </ToolButton>
           <ToolButton
+            dark={dark}
             label="Shape"
             shortcut="S"
             active={tool === 'shape'}
@@ -139,27 +150,37 @@ export function Whiteboard() {
           >
             <ShapeGlyph kind={shape} />
           </ToolButton>
-          <ToolButton label="Connector" shortcut="L" active={tool === 'connector'} onClick={() => useWhiteboardStore.getState().setTool('connector')}>
+          <ToolButton dark={dark} label="Connector" shortcut="L" active={tool === 'connector'} onClick={() => useWhiteboardStore.getState().setTool('connector')}>
             <Spline size={18} />
           </ToolButton>
-          <ToolButton label="Pen" shortcut="P" active={tool === 'pen'} onClick={() => useWhiteboardStore.getState().setTool('pen')}>
+          <ToolButton dark={dark} label="Pen" shortcut="P" active={tool === 'pen'} onClick={() => useWhiteboardStore.getState().setTool('pen')}>
             <Pencil size={18} />
           </ToolButton>
-          <ToolButton label="Frame" shortcut="F" active={tool === 'frame'} onClick={() => useWhiteboardStore.getState().setTool('frame')}>
+          <ToolButton dark={dark} label="Frame" shortcut="F" active={tool === 'frame'} onClick={() => useWhiteboardStore.getState().setTool('frame')}>
             <Frame size={18} />
           </ToolButton>
-          <ToolButton label="Eraser" shortcut="E" active={tool === 'eraser'} onClick={() => useWhiteboardStore.getState().setTool('eraser')}>
+          <ToolButton dark={dark} label="Eraser" shortcut="E" active={tool === 'eraser'} onClick={() => useWhiteboardStore.getState().setTool('eraser')}>
             <Eraser size={18} />
           </ToolButton>
         </div>
 
         {shapesOpen && (
-          <div className="no-drag absolute left-[68px] top-1/2 z-30 w-[196px] -translate-y-1/2 rounded-[14px] bg-white p-1.5 shadow-[0_8px_28px_rgba(0,0,0,.14)]">
+          <div
+            className={cn(
+              'no-drag absolute left-[68px] top-1/2 z-30 w-[196px] -translate-y-1/2 rounded-[14px] p-1.5',
+              dark
+                ? 'bg-secondary shadow-[0_8px_28px_rgba(0,0,0,.45)]'
+                : 'bg-white shadow-[0_8px_28px_rgba(0,0,0,.14)]',
+            )}
+          >
             {SHAPES.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
-                className={cn('flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left text-[13px] hover:bg-[#F2F3F5]', shape === entry.id && 'bg-[#E7ECFF] text-[#4262FF]')}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-[9px] px-2 py-1.5 text-left text-[13px] hover:bg-fill/10',
+                  shape === entry.id && (dark ? 'bg-accent-blue/20 text-accent-blue' : 'bg-[#E7ECFF] text-[#4262FF]'),
+                )}
                 onClick={() => {
                   useWhiteboardStore.getState().setShape(entry.id)
                   setShapesOpen(false)
@@ -173,10 +194,17 @@ export function Whiteboard() {
         )}
 
         {boardsOpen && (
-          <div className="no-drag absolute left-3 top-2 z-30 w-[300px] rounded-[14px] bg-white p-1.5 shadow-[0_8px_30px_rgba(0,0,0,.16)]">
+          <div
+            className={cn(
+              'no-drag absolute left-3 top-2 z-30 w-[300px] rounded-[14px] p-1.5',
+              dark
+                ? 'bg-secondary shadow-[0_8px_30px_rgba(0,0,0,.5)]'
+                : 'bg-white shadow-[0_8px_30px_rgba(0,0,0,.16)]',
+            )}
+          >
             <button
               type="button"
-              className="flex h-9 w-full items-center gap-2 rounded-[9px] px-2 text-[13px] font-medium text-[#4262FF] hover:bg-[#F2F3F5]"
+              className="flex h-9 w-full items-center gap-2 rounded-[9px] px-2 text-[13px] font-medium text-accent-blue hover:bg-fill/10"
               onClick={() => {
                 useWhiteboardStore.getState().createBoard()
                 setBoardsOpen(false)
@@ -187,20 +215,30 @@ export function Whiteboard() {
             </button>
             <div className="max-h-[320px] overflow-auto">
               {[...boards].sort((a, b) => b.updatedAt - a.updatedAt).map((entry) => (
-                <div key={entry.id} className={cn('group flex items-center gap-1 rounded-[9px] pr-1', entry.id === board.id ? 'bg-[#E7ECFF]' : 'hover:bg-[#F2F3F5]')}>
+                <div
+                  key={entry.id}
+                  className={cn(
+                    'group flex items-center gap-1 rounded-[9px] pr-1',
+                    entry.id === board.id
+                      ? dark
+                        ? 'bg-accent-blue/20'
+                        : 'bg-[#E7ECFF]'
+                      : 'hover:bg-fill/10',
+                  )}
+                >
                   <button type="button" className="min-w-0 flex-1 px-2 py-1.5 text-left" onClick={() => { useWhiteboardStore.getState().setActive(entry.id); setBoardsOpen(false) }}>
                     <span className="block truncate text-[13px] font-medium">{entry.title}</span>
-                    <span className="block text-[11px] text-[#5C5C66]">
+                    <span className="block text-[11px] text-tertiary">
                       {entry.items.length} {entry.items.length === 1 ? 'object' : 'objects'} · {formatDistanceToNow(entry.updatedAt, { addSuffix: true })}
                     </span>
                   </button>
-                  <button type="button" aria-label={`Duplicate ${entry.title}`} className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#5C5C66] opacity-60 hover:bg-black/5 hover:opacity-100" onClick={() => useWhiteboardStore.getState().duplicateBoard(entry.id)}>
+                  <button type="button" aria-label={`Duplicate ${entry.title}`} className="flex h-7 w-7 items-center justify-center rounded-[7px] text-tertiary opacity-60 hover:bg-fill/10 hover:opacity-100" onClick={() => useWhiteboardStore.getState().duplicateBoard(entry.id)}>
                     <Copy size={13} />
                   </button>
                   <button
                     type="button"
                     aria-label={`Delete ${entry.title}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-[7px] text-[#5C5C66] opacity-60 hover:bg-black/5 hover:opacity-100"
+                    className="flex h-7 w-7 items-center justify-center rounded-[7px] text-tertiary opacity-60 hover:bg-fill/10 hover:opacity-100"
                     onClick={() => {
                       void (async () => {
                         if (entry.items.length) {
@@ -228,7 +266,21 @@ export function Whiteboard() {
   )
 }
 
-function ToolButton({ label, shortcut, active, onClick, children }: { label: string; shortcut: string; active: boolean; onClick: () => void; children: React.ReactNode }) {
+function ToolButton({
+  label,
+  shortcut,
+  active,
+  onClick,
+  children,
+  dark,
+}: {
+  label: string
+  shortcut: string
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  dark: boolean
+}) {
   return (
     <button
       type="button"
@@ -236,7 +288,14 @@ function ToolButton({ label, shortcut, active, onClick, children }: { label: str
       aria-label={label}
       aria-pressed={active}
       onClick={onClick}
-      className={cn('flex h-9 w-9 items-center justify-center rounded-[10px] text-[#2C2C31]', active ? 'bg-[#E7ECFF] text-[#4262FF]' : 'hover:bg-[#F2F3F5]')}
+      className={cn(
+        'flex h-9 w-9 items-center justify-center rounded-[10px] text-primary',
+        active
+          ? dark
+            ? 'bg-accent-blue/20 text-accent-blue'
+            : 'bg-[#E7ECFF] text-[#4262FF]'
+          : 'hover:bg-fill/10',
+      )}
     >
       {children}
     </button>

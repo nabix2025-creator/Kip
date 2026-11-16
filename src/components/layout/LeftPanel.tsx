@@ -47,7 +47,7 @@ export function LeftPanel() {
               <MenuButton label="Show agenda" onClick={choose(toggleRight)} />
               <MenuButton label="Go to today" hint="Ctrl T" onClick={choose(goToday)} />
               <MenuButton label="New event" hint="Ctrl K" onClick={choose(openNl)} />
-              <MenuButton label="Whiteboard" onClick={choose(() => useCalendarStore.getState().openWhiteboard())} />
+              <MenuButton label="Board" onClick={choose(() => useCalendarStore.getState().openWhiteboard())} />
               <MenuButton
                 label="New from slot"
                 onClick={choose(() => useCalendarStore.getState().openEventModal({ mode: 'create', series: false, draft: blankDraft() }))}
@@ -59,7 +59,7 @@ export function LeftPanel() {
           )}
         </div>
         <CalendarList />
-        <div className="relative mt-auto border-t border-divider px-1 pb-2 pt-1">
+        <div className="relative mt-auto overflow-hidden border-t border-divider px-1 pb-2 pt-1">
           <MiniCalendar selected={selected} onSelect={selectDay} />
           <NamazFlash />
         </div>

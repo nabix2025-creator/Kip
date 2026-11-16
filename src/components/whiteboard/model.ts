@@ -84,6 +84,9 @@ export const FRAME_COLORS = ['#4262FF', '#E5484D', '#2F9E62', '#E29A12', '#8E4EC
 
 export const ACCENT = '#4262FF'
 export const CANVAS = '#F4F5F7'
+export const CANVAS_DARK = '#1C1C1E'
+export const DOT_LIGHT = '#C5C7CF'
+export const DOT_DARK = '#3A3A3C'
 
 export function isNode(item: BoardItem): item is NodeItem {
   return item.type === 'sticky' || item.type === 'text' || item.type === 'shape' || item.type === 'frame'
